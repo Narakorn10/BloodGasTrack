@@ -1,0 +1,24 @@
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Dependency directories
+frontend/node_modules/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Clasp / Apps Script
+.clasp.json
+
+# Environment variables
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
