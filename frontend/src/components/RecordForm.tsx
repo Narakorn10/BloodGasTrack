@@ -18,10 +18,10 @@ const formSchema = z.object({
   qc: z.string().min(1, "กรุณากรอกปริมาณ"),
   qcExpiry: z.string().min(1, "กรุณาเลือกวันหมดอายุ"),
   qcLot: z.string().min(1, "กรุณากรอก Lot"),
-  comment: z.string().optional(),
-  deprotein: z.boolean().default(false),
-  condition: z.boolean().default(false),
-  waste: z.enum(["ทิ้ง Waste", "ไม่ได้ทิ้ง Waste"]).default("ไม่ได้ทิ้ง Waste"),
+  comment: z.string().optional().or(z.literal("")),
+  deprotein: z.boolean(),
+  condition: z.boolean(),
+  waste: z.enum(["ทิ้ง Waste", "ไม่ได้ทิ้ง Waste"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -53,6 +53,16 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      reagent: "",
+      reagentExpiry: "",
+      reagentLot: "",
+      wash: "",
+      washExpiry: "",
+      washLot: "",
+      qc: "",
+      qcExpiry: "",
+      qcLot: "",
+      comment: "",
       deprotein: false,
       condition: false,
       waste: "ไม่ได้ทิ้ง Waste",
@@ -71,6 +81,12 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         deprotein: false,
         condition: false,
         waste: "ไม่ได้ทิ้ง Waste",
+        reagentLot: initialData.reagentLot || "",
+        reagentExpiry: initialData.reagentExpiry || "",
+        washLot: initialData.washLot || "",
+        washExpiry: initialData.washExpiry || "",
+        qcLot: initialData.qcLot || "",
+        qcExpiry: initialData.qcExpiry || "",
       });
       // Reset replacement toggles
       setIsReplacingR(false);

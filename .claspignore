@@ -1,0 +1,17 @@
+# Ignore everything by default
+**/*
+
+# Allow specific Apps Script files
+!Code.js
+!appsscript.json
+!index.html
+
+# Ignore node_modules and .next specifically (redundant but safe)
+frontend/
+node_modules/
+.next/
+.git/
+.clasp.json
+.gitignore
+GEMINI.md
+README.md
