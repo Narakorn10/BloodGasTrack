@@ -6,6 +6,7 @@
 const RECORDS_SHEET = 'Records';
 const LOGS_SHEET    = 'Logs';
 const USERS_SHEET   = 'Users';
+const WARDS_SHEET   = 'Wards';
 
 const DATA_HEADERS = [
   'Timestamp',       // 0
@@ -122,16 +123,16 @@ function login(username, password) {
 
 function getWards() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(RECORDS_SHEET);
-  if (!sheet) return JSON.stringify({ success: true, wards: [] });
+  const sheet = ss.getSheetByName(WARDS_SHEET);
+  if (!sheet) return JSON.stringify({ success: true, wards: ["อายุกรรมชาย 2", "NICU", "ICU(MED)"] });
   
   var data = sheet.getDataRange().getValues();
   var wards = [];
   for (var i = 1; i < data.length; i++) {
-    var w = data[i][COL.WARD];
-    if (w && wards.indexOf(w) === -1) wards.push(w);
+    var w = String(data[i][0] || '').trim();
+    if (w) wards.push(w);
   }
-  return JSON.stringify({ success: true, wards: wards });
+  return JSON.stringify({ success: true, wards: wards.length > 0 ? wards : ["อายุกรรมชาย 2", "NICU", "ICU(MED)"] });
 }
 
 function logLogin_(username, fullName) {
@@ -154,8 +155,11 @@ function getLastRecord(ward) {
   if (!sheet) return JSON.stringify({ success: true, record: null });
 
   var data = sheet.getDataRange().getValues();
+  var searchWard = String(ward || '').trim().toLowerCase();
+
   for (var i = 1; i < data.length; i++) {
-    if (data[i][COL.WARD] === ward) {
+    var rowWard = String(data[i][COL.WARD] || '').trim().toLowerCase();
+    if (rowWard === searchWard) {
       return JSON.stringify({ success: true, record: toObj_(data[i]) });
     }
   }
@@ -237,45 +241,80 @@ function saveRecord(data) {
 //  INIT SHEETS
 // =====================================================================
 
+/**
+ * [Manual Run] Run this once to setup or update your Google Sheets structure.
+ */
+function setupSystem() {
+  initSheets();
+  SpreadsheetApp.getUi().alert('✅ ตั้งค่าหัวตารางและโครงสร้างฐานข้อมูลเรียบร้อยแล้ว!');
+}
+
 function initSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   const HEADER_COLOR = '#0a4d68';
   const USER_HEADER_COLOR = '#1e3a5f';
 
-  // Records + Logs
+  // 1. Setup Records & Logs (Data Sheets)
   var dataSheets = [RECORDS_SHEET, LOGS_SHEET];
-  for (var d = 0; d < dataSheets.length; d++) {
-    var name = dataSheets[d];
+  dataSheets.forEach(function(name) {
     var sh = ss.getSheetByName(name);
     if (!sh) sh = ss.insertSheet(name);
     
-    if (!sh.getRange('A1').getValue()) {
-      sh.getRange(1, 1, 1, DATA_HEADERS.length)
-        .setValues([DATA_HEADERS])
-        .setFontWeight('bold')
-        .setBackground(HEADER_COLOR)
-        .setFontColor('#ffffff');
-      sh.setFrozenRows(1);
-      sh.setColumnWidth(1, 165);
-      sh.setColumnWidth(10, 260);
+    // Always update/write headers to ensure new columns (Lot) exist
+    sh.getRange(1, 1, 1, DATA_HEADERS.length)
+      .setValues([DATA_HEADERS])
+      .setFontWeight('bold')
+      .setBackground(HEADER_COLOR)
+      .setFontColor('#ffffff')
+      .setHorizontalAlignment('center');
+    
+    sh.setFrozenRows(1);
+    if (sh.getMaxColumns() < DATA_HEADERS.length) {
+      sh.insertColumnsAfter(sh.getMaxColumns(), DATA_HEADERS.length - sh.getMaxColumns());
     }
+  });
+
+  // 2. Setup Wards Sheet (Master List)
+  var wsh = ss.getSheetByName(WARDS_SHEET);
+  const WARD_HEADER_COLOR = '#088395';
+  if (!wsh) {
+    wsh = ss.insertSheet(WARDS_SHEET);
+    wsh.getRange(1, 1).setValue('Ward Name').setFontWeight('bold').setBackground(WARD_HEADER_COLOR).setFontColor('#ffffff').setHorizontalAlignment('center');
+    wsh.appendRow(['อายุกรรมชาย 2']);
+    wsh.appendRow(['NICU']);
+    wsh.appendRow(['ICU(MED)']);
+    wsh.setColumnWidth(1, 250);
   }
 
-  // Users
+  // 3. Setup Users Sheet
   var ush = ss.getSheetByName(USERS_SHEET);
+  var isNewUserSheet = false;
   if (!ush) {
     ush = ss.insertSheet(USERS_SHEET);
-    ush.getRange(1, 1, 1, USER_HEADERS.length)
-      .setValues([USER_HEADERS])
-      .setFontWeight('bold')
-      .setBackground(USER_HEADER_COLOR)
-      .setFontColor('#ffffff');
-    ush.setFrozenRows(1);
-    ush.appendRow(['admin',   'admin1234', 'ผู้ดูแลระบบ',   'admin', 'TRUE']);
-    ush.appendRow(['nurse01', 'nurse1234', 'พยาบาล หอ 2',  'user',  'TRUE']);
-    ush.appendRow(['nurse02', 'nurse5678', 'พยาบาล NICU',  'user',  'TRUE']);
-    ush.setColumnWidths(1, USER_HEADERS.length, 150);
+    isNewUserSheet = true;
   }
+
+  // Write/Update User Headers
+  ush.getRange(1, 1, 1, USER_HEADERS.length)
+    .setValues([USER_HEADERS])
+    .setFontWeight('bold')
+    .setBackground(USER_HEADER_COLOR)
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center');
+  ush.setFrozenRows(1);
+
+  if (isNewUserSheet) {
+    ush.appendRow(['admin',   'admin1234', 'ผู้ดูแลระบบ',   'admin', 'TRUE', '']);
+    ush.appendRow(['nurse01', 'nurse1234', 'พยาบาล หอ 2',  'user',  'TRUE', 'อายุกรรมชาย 2']);
+    ush.appendRow(['nurse02', 'nurse5678', 'พยาบาล NICU',  'user',  'TRUE', 'NICU']);
+  }
+
+  // Auto-resize columns for readability
+  dataSheets.concat(USERS_SHEET).forEach(function(name) {
+    var s = ss.getSheetByName(name);
+    s.getRange(1, 1, 1, s.getLastColumn()).setWrap(true);
+    s.setColumnWidths(1, s.getLastColumn(), 120);
+  });
 }
 
 // =====================================================================
