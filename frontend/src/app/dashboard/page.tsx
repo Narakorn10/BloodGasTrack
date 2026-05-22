@@ -9,6 +9,7 @@ import { LogsList } from "@/components/LogsList";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
 
+// Final Build Trigger: Correcting TypeScript onSuccess signature
 export default function DashboardPage() {
   const [ward, setWard] = useState("");
   const [wards, setWards] = useState<string[]>([]);
