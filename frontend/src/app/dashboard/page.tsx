@@ -117,7 +117,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
               <RecordForm 
                 ward={ward} 
-                onSuccess={fetchData} 
+                onSuccess={() => fetchData(ward)} 
                 showToast={showToast} 
                 onValuesChange={setPreviewData}
                 initialData={record}
