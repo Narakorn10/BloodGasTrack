@@ -10,21 +10,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
-  const [ward, setWard] = useState("อายุกรรมชาย 2");
+  const [ward, setWard] = useState("");
+  const [wards, setWards] = useState<string[]>([]);
   const [record, setRecord] = useState<any>(null);
   const [previewData, setPreviewData] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
-  const wards = ["อายุกรรมชาย 2", "NICU", "ICU(MED)"];
-
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (currentWard: string) => {
+    if (!currentWard) return;
     setLoading(true);
-    setPreviewData(null); // Clear preview when ward changes or after save
+    setPreviewData(null); 
     try {
       const [recRes, logRes] = await Promise.all([
-        api.post("getLastRecord", { ward }),
+        api.post("getLastRecord", { ward: currentWard }),
         api.post("getLogs")
       ]);
       setRecord(recRes.record);
@@ -34,11 +34,37 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [ward]);
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const init = async () => {
+      const savedUserStr = localStorage.getItem("user");
+      if (!savedUserStr) return;
+      const user = JSON.parse(savedUserStr);
+
+      try {
+        const wardRes = await api.post("getWards");
+        let availableWards = wardRes.wards || ["อายุกรรมชาย 2", "NICU", "ICU(MED)"];
+        
+        // Logic: Filter wards if not admin
+        if (user.role !== 'admin' && user.ward) {
+          availableWards = [user.ward];
+          setWard(user.ward);
+        } else {
+          setWards(availableWards);
+          setWard(availableWards[0]);
+        }
+        setWards(availableWards);
+      } catch (err) {
+        console.error("Failed to load wards");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (ward) fetchData(ward);
+  }, [ward, fetchData]);
 
   const showToast = (msg: string, err = false) => {
     setToast({ msg, err });

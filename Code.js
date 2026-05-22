@@ -32,7 +32,7 @@ const COL = {
   R_LOT: 13, W_LOT: 14, Q_LOT: 15
 };
 
-const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active'];
+const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active', 'Ward'];
 
 // ─── Serve HTML ──────────────────────────────────────────────────────
 function doGet(e) {
@@ -60,6 +60,8 @@ function doPost(e) {
       response = getLogs();
     } else if (action === 'saveRecord') {
       response = saveRecord(body.data);
+    } else if (action === 'getWards') {
+      response = getWards();
     } else {
       response = JSON.stringify({ success: false, message: 'Invalid Action' });
     }
@@ -93,6 +95,7 @@ function login(username, password) {
     var fullName = rows[i][2];
     var role     = rows[i][3];
     var active   = rows[i][4];
+    var ward     = rows[i][5];
 
     if (String(uname).trim().toLowerCase() === String(username).trim().toLowerCase()) {
       if (String(active).toUpperCase() !== 'TRUE') {
@@ -105,7 +108,8 @@ function login(username, password) {
           user: {
             username: String(uname).trim(),
             fullName: String(fullName || uname),
-            role:     String(role || 'user')
+            role:     String(role || 'user'),
+            ward:     String(ward || '')
           }
         });
       } else {
@@ -114,6 +118,20 @@ function login(username, password) {
     }
   }
   return JSON.stringify({ success: false, message: 'ไม่พบ Username นี้ในระบบ' });
+}
+
+function getWards() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(RECORDS_SHEET);
+  if (!sheet) return JSON.stringify({ success: true, wards: [] });
+  
+  var data = sheet.getDataRange().getValues();
+  var wards = [];
+  for (var i = 1; i < data.length; i++) {
+    var w = data[i][COL.WARD];
+    if (w && wards.indexOf(w) === -1) wards.push(w);
+  }
+  return JSON.stringify({ success: true, wards: wards });
 }
 
 function logLogin_(username, fullName) {
@@ -269,11 +287,11 @@ function toObj_(r) {
     timestamp:     r[COL.TS] ? r[COL.TS].toString() : '',
     ward:          r[COL.WARD]   || '',
     worker:        r[COL.WORKER] || '',
-    reagent:       r[COL.R_PCT],
+    reagent:       Number(r[COL.R_PCT]) || 0,
     reagentExpiry: isoDate_(r[COL.R_EXP]),
-    wash:          r[COL.W_PCT],
+    wash:          Number(r[COL.W_PCT]) || 0,
     washExpiry:    isoDate_(r[COL.W_EXP]),
-    qc:            r[COL.Q_PCT],
+    qc:            Number(r[COL.Q_PCT]) || 0,
     qcExpiry:      isoDate_(r[COL.Q_EXP]),
     comment:       r[COL.CMT]    || '',
     deprotein:     String(r[COL.DP]) === 'ทำ' || String(r[COL.DP]).toUpperCase() === 'TRUE',

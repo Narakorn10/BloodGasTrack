@@ -39,7 +39,7 @@ let MOCK_DATA: any = {
   },
   login: {
     success: true,
-    user: { username: "admin", fullName: "นรากร (Mock User)", role: "admin" }
+    user: { username: "admin", fullName: "นรากร (Mock User)", role: "admin", ward: "อายุกรรมชาย 2" }
   },
   getWards: {
     success: true,
