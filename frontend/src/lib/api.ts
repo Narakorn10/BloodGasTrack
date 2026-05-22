@@ -38,8 +38,8 @@ let MOCK_DATA: any = {
     message: "บันทึกสำเร็จ (Mock Mode)"
   },
   login: {
-    success: true,
-    user: { username: "admin", fullName: "นรากร (Mock User)", role: "admin", ward: "อายุกรรมชาย 2" }
+    success: false,
+    message: "ระบบกำลังทำงานใน Mock Mode กรุณาตั้งค่า GAS_URL เพื่อใช้งานจริง"
   },
   getWards: {
     success: true,
@@ -81,7 +81,11 @@ export const api = {
       });
       return response.data;
     } catch (error) {
-      console.error('API Error, falling back to mock:', error);
+      console.error('API Error:', error);
+      // For sensitive actions like login, do NOT fall back to mock data
+      if (action === 'login') {
+        return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้" };
+      }
       return MOCK_DATA[action as keyof typeof MOCK_DATA] || { success: false, message: "API Error & No Mock Data" };
     }
   },
