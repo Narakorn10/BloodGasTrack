@@ -22,15 +22,10 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
   const isCritical = diff < 0 || val < 10;
   const isWarning = (diff >= 0 && diff <= 30) || (val >= 10 && val <= 25);
 
-  // Fallback colors if CSS vars fail
-  const strokeColor = color.includes('var') ? color : color;
+  const strokeColor = color;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center gap-4 relative overflow-hidden group hover:border-sky-200 transition-all shadow-sm"
-    >
+    <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center gap-4 relative overflow-hidden shadow-sm">
       {/* Small Circular Gauge */}
       <div className="relative w-16 h-16 shrink-0">
         <svg className="w-full h-full gauge-ring">
@@ -48,7 +43,7 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: circumference - progress }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
+            transition={{ duration: 0.5, ease: "linear" }}
             strokeLinecap="round"
           />
         </svg>
@@ -69,15 +64,10 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
         <div className={`text-[11px] font-semibold truncate ${isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-slate-400'}`}>
           {exp ? `Exp: ${fmtD(exp)}` : '–'}
         </div>
-        {isCritical && (
-          <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-red-500 uppercase">
-            <AlertTriangle size={10} /> {diff < 0 ? 'หมดอายุแล้ว' : 'ระดับวิกฤต'}
-          </div>
-        )}
       </div>
 
       {isCritical && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
-    </motion.div>
+    </div>
   );
 }
 

@@ -167,32 +167,24 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         <motion.button 
           type="button"
           onClick={onToggleReplace}
-          whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-500 border ${
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-200 border ${
             isReplacing 
-              ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-200' 
-              : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-sky-400 hover:bg-white hover:text-sky-600'
+              ? 'bg-rose-500 border-rose-400 text-white' 
+              : 'bg-slate-50 border-slate-200 text-slate-500'
           }`}
         >
           <div className="relative w-3.5 h-3.5 flex items-center justify-center">
             <motion.div
-              animate={{ 
-                rotate: isReplacing ? 360 : 0,
-                scale: isReplacing ? 1.2 : 1
-              }}
-              whileHover={{ rotate: isReplacing ? 450 : 90 }}
-              transition={{ 
-                rotate: { duration: 0.8, ease: "easeInOut" },
-                scale: { type: "spring", stiffness: 200, damping: 15 }
-              }}
+              animate={{ rotate: isReplacing ? 360 : 0 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
               className="flex items-center justify-center"
             >
               <RotateCw size={14} className={isReplacing ? "opacity-100" : "opacity-40"} />
             </motion.div>
             {!isReplacing && <PenLine size={10} className="absolute z-10 opacity-60" />}
           </div>
-          <span className="ml-1 tracking-tight">{isReplacing ? "กำลังเปลี่ยน..." : "เปลี่ยนน้ำยา"}</span>
+          <span className="ml-1 tracking-tight">{isReplacing ? "ยกเลิก" : "เปลี่ยนน้ำยา"}</span>
         </motion.button>
       )}
     </div>
