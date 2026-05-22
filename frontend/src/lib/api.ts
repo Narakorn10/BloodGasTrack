@@ -4,42 +4,28 @@ const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL
   ? `https://script.google.com/macros/s/${process.env.NEXT_PUBLIC_GAS_URL}/exec`
   : null;
 
-// Mock Data for local testing
+// Mock Data for local testing (matches v5.5 Backend Structure)
 let MOCK_DATA: any = {
   getLastRecord: {
     success: true,
     record: {
-      timestamp: new Date().toISOString(),
-      ward: "อายุกรรมชาย 2",
-      worker: "นรากร (Mock)",
-      reagent: 75.5,
-      reagentExpiry: "2026-12-31",
-      reagentLot: "LOT12345",
-      wash: 42.0,
-      washExpiry: "2026-08-15",
-      washLot: "LOT67890",
-      qc: 90.0,
-      qcExpiry: "2026-11-20",
-      qcLot: "QC-ABC-DE",
-      comment: "น้ำยาใกล้หมดในเดือนหน้า เตรียมเบิกเพิ่ม",
-      deprotein: true,
-      condition: true,
-      waste: "ไม่ได้ทิ้ง Waste"
+      timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)",
+      reagent: 75, reagentExpiry: "2026-12-31", reagentLot: "LOT-R-MOCK",
+      wash: 42, washExpiry: "2026-08-15", washLot: "LOT-W-MOCK",
+      qc: 90, qcExpiry: "2026-11-20", qcLot: "LOT-Q-MOCK",
+      comment: "โหมดจำลองสถานะแอป", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste"
     }
   },
   getLogs: {
     success: true,
     logs: [
-      { timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)", reagent: 75.5, wash: 42, qc: 90, comment: "ทดสอบระบบใหม่", reagentExpiry: "2026-12-31", washExpiry: "2026-08-15", qcExpiry: "2026-11-20", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste" },
+      { timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)", reagent: 75, wash: 42, qc: 90, comment: "ระบบพร้อมใช้งาน", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste" },
     ]
   },
-  saveRecord: {
-    success: true,
-    message: "บันทึกสำเร็จ (Mock Mode)"
-  },
+  saveRecord: { success: true, message: "บันทึกสำเร็จ (Mock Mode)" },
   login: {
-    success: false,
-    message: "ระบบกำลังทำงานใน Mock Mode กรุณาตั้งค่า GAS_URL เพื่อใช้งานจริง"
+    success: true,
+    user: { username: "admin", fullName: "ผู้ดูแลระบบ (Mock)", role: "admin", ward: "" }
   },
   getWards: {
     success: true,
@@ -48,55 +34,47 @@ let MOCK_DATA: any = {
 };
 
 export const api = {
-  async post(action: string, data: any = {}) {
+  async post(action: string, payload: any = {}) {
+    // 1. If GAS_URL is missing, use Mock Mode
     if (!GAS_URL) {
-      console.warn(`⚠️ GAS_URL is not set. Returning Mock Data for: ${action}`);
+      console.warn(`[Mock API] Action: ${action}`, payload);
       
-      if (action === 'login') {
-        return { success: false, message: "ระบบไม่ได้ตั้งค่า GAS_URL (Environment Error)" };
-      }
-
-      // Simulate real behavior for Mock Mode
       if (action === 'saveRecord') {
-        const newRecord = {
-          ...data.data,
-          timestamp: new Date().toISOString(),
-          ward: data.ward,
-          worker: data.worker,
+        const newRec = { 
+          ...payload.data, 
+          timestamp: new Date().toLocaleString(), 
+          ward: payload.data.ward, 
+          worker: payload.data.worker 
         };
-        MOCK_DATA.getLastRecord.record = newRecord;
-        MOCK_DATA.getLogs.logs.unshift(newRecord);
-        return { success: true, message: "บันทึกสำเร็จ (Mock DB updated)" };
+        MOCK_DATA.getLastRecord.record = newRec;
+        MOCK_DATA.getLogs.logs.unshift(newRec);
+        return MOCK_DATA.saveRecord;
       }
 
-      if (action === 'getLastRecord') {
-        // Just return the latest mock record, ignore ward for simplicity in mock
-        return MOCK_DATA.getLastRecord;
-      }
-
-      return MOCK_DATA[action] || { success: false, message: "No Mock Data" };
+      if (action === 'login') return MOCK_DATA.login;
+      if (action === 'getWards') return MOCK_DATA.getWards;
+      if (action === 'getLastRecord') return MOCK_DATA.getLastRecord;
+      if (action === 'getLogs') return MOCK_DATA.getLogs;
+      
+      return { success: false, message: "No Mock Data for: " + action };
     }
 
+    // 2. Real API Call
     try {
-      console.log(`📡 API Request: ${action}`, data);
-      const response = await axios.post(GAS_URL, JSON.stringify({ action, ...data }), {
-        headers: {
-          'Content-Type': 'text/plain',
-        },
+      // Standardized request structure for v5.5 Backend
+      const requestBody = {
+        action: action,
+        ...payload // Contains ward, username, password, or data object
+      };
+
+      const response = await axios.post(GAS_URL, JSON.stringify(requestBody), {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
-      console.log(`✅ API Response: ${action}`, response.data);
+
       return response.data;
-    } catch (error: any) {
-      console.error('❌ API Error Detail:', {
-        action,
-        message: error.message,
-        url: GAS_URL
-      });
-      // For sensitive actions like login, do NOT fall back to mock data
-      if (action === 'login') {
-        return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ (Network Error)" };
-      }
-      return MOCK_DATA[action as keyof typeof MOCK_DATA] || { success: false, message: "API Error & No Mock Data" };
+    } catch (error) {
+      console.error(`[API Error] ${action}:`, error);
+      return { success: false, message: "การเชื่อมต่อหลังบ้านผิดพลาด" };
     }
   },
 };

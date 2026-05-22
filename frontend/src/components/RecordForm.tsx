@@ -121,11 +121,12 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
+      // v5.5 Standardized Payload: everything needed for the row goes in 'data'
       const res = await api.post("saveRecord", {
         data: {
-          ward,
-          worker: user?.fullName || user?.username,
           ...data,
+          ward: ward,
+          worker: user?.fullName || user?.username,
           reagent: parseFloat(data.reagent),
           wash: parseFloat(data.wash),
           qc: parseFloat(data.qc),
