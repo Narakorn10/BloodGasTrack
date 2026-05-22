@@ -50,7 +50,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     watch,
     setValue,
     formState: { errors, isDirty },
-  } = useForm<FormValues>({
+  } = useForm<any>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       reagent: "",
