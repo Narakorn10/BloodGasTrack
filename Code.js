@@ -58,7 +58,7 @@ function doPost(e) {
     } else if (action === 'getLastRecord') {
       response = getLastRecord(body.ward);
     } else if (action === 'getLogs') {
-      response = getLogs();
+      response = getLogs(body.ward);
     } else if (action === 'saveRecord') {
       response = saveRecord(body.data);
     } else if (action === 'getWards') {
@@ -166,7 +166,7 @@ function getLastRecord(ward) {
   return JSON.stringify({ success: true, record: null });
 }
 
-function getLogs() {
+function getLogs(ward) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(LOGS_SHEET);
   if (!sheet) return JSON.stringify({ success: true, logs: [] });
@@ -174,16 +174,24 @@ function getLogs() {
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return JSON.stringify({ success: true, logs: [] });
 
-  // Fetch only the last 20 rows (or fewer if sheet is small)
-  var numRows = Math.min(20, lastRow - 1);
+  // Fetch a larger window to ensure we find enough history for the ward
+  var scanLimit = 100;
+  var numRows = Math.min(scanLimit, lastRow - 1);
   var startRow = lastRow - numRows + 1;
   
   var data = sheet.getRange(startRow, 1, numRows, DATA_HEADERS.length).getValues();
   var logs = [];
-  
-  // Return in reverse order (newest first)
+  var filterWard = ward ? String(ward).trim().toLowerCase() : null;
+
+  // Scan in reverse order (newest first)
   for (var i = data.length - 1; i >= 0; i--) {
-    logs.push(toObj_(data[i]));
+    var rowWard = String(data[i][COL.WARD] || '').trim().toLowerCase();
+    
+    if (!filterWard || rowWard === filterWard) {
+      logs.push(toObj_(data[i]));
+    }
+    
+    if (logs.length >= 20) break; // Return max 20 logs
   }
   return JSON.stringify({ success: true, logs: logs });
 }

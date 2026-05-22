@@ -26,7 +26,7 @@ export default function DashboardPage() {
     try {
       const [recRes, logRes] = await Promise.all([
         api.post("getLastRecord", { ward: currentWard }),
-        api.post("getLogs")
+        api.post("getLogs", { ward: currentWard })
       ]);
       setRecord(recRes.record);
       setLogs(logRes.logs || []);

@@ -205,8 +205,8 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
               <div className="relative">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.wash ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400'}`}
-                  placeholder="0" {...register("wash")} 
+                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.reagent ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-sky-400'}`}
+                  placeholder="0" {...register("reagent")} 
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
@@ -289,8 +289,8 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
               <div className="relative">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.wash ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400'}`}
-                  placeholder="0" {...register("wash")} 
+                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.qc ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-emerald-400'}`}
+                  placeholder="0" {...register("qc")} 
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
