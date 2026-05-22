@@ -52,6 +52,10 @@ export const api = {
     if (!GAS_URL) {
       console.warn(`⚠️ GAS_URL is not set. Returning Mock Data for: ${action}`);
       
+      if (action === 'login') {
+        return { success: false, message: "ระบบไม่ได้ตั้งค่า GAS_URL (Environment Error)" };
+      }
+
       // Simulate real behavior for Mock Mode
       if (action === 'saveRecord') {
         const newRecord = {
@@ -74,17 +78,23 @@ export const api = {
     }
 
     try {
+      console.log(`📡 API Request: ${action}`, data);
       const response = await axios.post(GAS_URL, JSON.stringify({ action, ...data }), {
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
+          'Content-Type': 'text/plain',
         },
       });
+      console.log(`✅ API Response: ${action}`, response.data);
       return response.data;
-    } catch (error) {
-      console.error('API Error:', error);
+    } catch (error: any) {
+      console.error('❌ API Error Detail:', {
+        action,
+        message: error.message,
+        url: GAS_URL
+      });
       // For sensitive actions like login, do NOT fall back to mock data
       if (action === 'login') {
-        return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้" };
+        return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ (Network Error)" };
       }
       return MOCK_DATA[action as keyof typeof MOCK_DATA] || { success: false, message: "API Error & No Mock Data" };
     }

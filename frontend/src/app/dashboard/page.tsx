@@ -47,7 +47,6 @@ export default function DashboardPage() {
         const wardRes = await api.post("getWards");
         let availableWards = wardRes.wards || ["อายุกรรมชาย 2", "NICU", "ICU(MED)"];
         
-        // Logic: Filter wards if not admin
         if (user.role !== 'admin' && user.ward) {
           availableWards = [user.ward];
           setWard(user.ward);
@@ -58,6 +57,10 @@ export default function DashboardPage() {
         setWards(availableWards);
       } catch (err) {
         console.error("Failed to load wards");
+        setWards(["อายุกรรมชาย 2", "NICU", "ICU(MED)"]);
+        setWard("อายุกรรมชาย 2");
+      } finally {
+        // Ensure loading is handled if initial fetch is quick
       }
     };
     init();
@@ -65,6 +68,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (ward) fetchData(ward);
+    else setLoading(false); // Stop loading if no ward to fetch
   }, [ward, fetchData]);
 
   const showToast = (msg: string, err = false) => {
@@ -74,9 +78,15 @@ export default function DashboardPage() {
 
   // Merge live form data with current record for preview
   const displayRecord = previewData ? { ...record, ...previewData } : record;
+  const isMock = !process.env.NEXT_PUBLIC_GAS_URL;
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
+      {isMock && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[10px] font-bold text-amber-700 flex items-center gap-2">
+          <AlertCircle size={14} /> ระบบกำลังทำงานในโหมดจำลอง (Mock Data) เนื่องจากยังไม่ได้ตั้งค่า NEXT_PUBLIC_GAS_URL ใน Vercel
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
