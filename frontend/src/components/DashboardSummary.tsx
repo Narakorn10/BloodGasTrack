@@ -48,7 +48,7 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-sm font-bold font-mono" style={{ color: strokeColor }}>{val ?? '–'}</span>
+          <span className="text-sm font-bold font-mono" style={{ color: strokeColor }}>{val ?? 0}</span>
           <span className="text-[8px] font-bold -mt-0.5" style={{ color: strokeColor }}>%</span>
         </div>
       </div>
