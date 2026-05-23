@@ -3,70 +3,49 @@
 //  Consolidated & Standardized for Next.js API
 // =====================================================================
 
-const RECORDS_SHEET = 'Records';
-const LOGS_SHEET    = 'Logs';
-const USERS_SHEET   = 'Users';
-const WARDS_SHEET   = 'Wards';
+// ─── Utility: Dynamic Column Mapping ───────────────────────────────
 
-const DATA_HEADERS = [
-  'Timestamp',       // 0
-  'Ward',            // 1
-  'Worker',          // 2
-  'Reagent (%)',     // 3
-  'Reagent Expiry',  // 4
-  'Wash (%)',        // 5
-  'Wash Expiry',     // 6
-  'QC (%)',          // 7
-  'QC Expiry',       // 8
-  'Comment',         // 9
-  'Deprotein',       // 10
-  'Condition',       // 11
-  'Waste',           // 12
-  'Reagent Lot',     // 13
-  'Wash Lot',        // 14
-  'QC Lot',          // 15
-];
-
-const COL = {
-  TS: 0, WARD: 1, WORKER: 2, R_PCT: 3, R_EXP: 4, W_PCT: 5, W_EXP: 6, Q_PCT: 7, Q_EXP: 8, CMT: 9, DP: 10, CD: 11, WASTE: 12,
-  R_LOT: 13, W_LOT: 14, Q_LOT: 15
-};
-
-const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active', 'Ward'];
-
-// ─── Entry Points ──────────────────────────────────────────────────
-
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Blood Gas Tracker')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+function getColMap_(sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((h, i) => {
+    const key = h.replace(/[\s(%)]/g, '').toLowerCase(); // Normalizes headers like "Reagent (%)" to "reagent"
+    map[key] = i;
+  });
+  
+  // Specific mappings for known headers
+  return {
+    ts: headers.indexOf('Timestamp'),
+    ward: headers.indexOf('Ward'),
+    worker: headers.indexOf('Worker'),
+    r_pct: headers.indexOf('Reagent (%)'),
+    r_exp: headers.indexOf('Reagent Expiry'),
+    r_lot: headers.indexOf('Reagent Lot'),
+    w_pct: headers.indexOf('Wash (%)'),
+    w_exp: headers.indexOf('Wash Expiry'),
+    w_lot: headers.indexOf('Wash Lot'),
+    q_pct: headers.indexOf('QC (%)'),
+    q_exp: headers.indexOf('QC Expiry'),
+    q_lot: headers.indexOf('QC Lot'),
+    cmt: headers.indexOf('Comment'),
+    dp: headers.indexOf('Deprotein'),
+    cd: headers.indexOf('Condition'),
+    waste: headers.indexOf('Waste')
+  };
 }
 
-function doPost(e) {
-  var response;
-  try {
-    var body = JSON.parse(e.postData.contents);
-    var action = body.action;
-    var data = body.data || {}; // Contains all form fields or criteria
-
-    if (action === 'login') {
-      response = login(body.username, body.password);
-    } else if (action === 'getLastRecord') {
-      response = getLastRecord(body.ward);
-    } else if (action === 'getLogs') {
-      response = getLogs(body.ward);
-    } else if (action === 'saveRecord') {
-      response = saveRecord(data);
-    } else if (action === 'getWards') {
-      response = getWards();
-    } else {
-      response = JSON.stringify({ success: false, message: 'Invalid Action: ' + action });
-    }
-  } catch (err) {
-    response = JSON.stringify({ success: false, message: 'Server Error: ' + err.toString() });
-  }
-  return ContentService.createTextOutput(response).setMimeType(ContentService.MimeType.JSON);
+function toObj_(r, col) {
+  return {
+    timestamp: r[col.ts] ? r[col.ts].toString() : '',
+    ward: r[col.ward] || '', worker: r[col.worker] || '',
+    reagent: Number(r[col.r_pct]) || 0, reagentExpiry: isoDate_(r[col.r_exp]), reagentLot: r[col.r_lot] || '',
+    wash: Number(r[col.w_pct]) || 0, washExpiry: isoDate_(r[col.w_exp]), washLot: r[col.w_lot] || '',
+    qc: Number(r[col.q_pct]) || 0, qcExpiry: isoDate_(r[col.q_exp]), qcLot: r[col.q_lot] || '',
+    comment: r[col.cmt] || '',
+    deprotein: String(r[col.dp]) === 'ทำ' || String(r[col.dp]).toUpperCase() === 'TRUE',
+    condition: String(r[col.cd]) === 'ทำ' || String(r[col.cd]).toUpperCase() === 'TRUE',
+    waste: r[col.waste] || 'ไม่ได้ทิ้ง Waste'
+  };
 }
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -107,11 +86,13 @@ function getLastRecord(wardName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(RECORDS_SHEET) || initSheets().rsh;
   const data = sheet.getDataRange().getValues();
+  const col = getColMap_(sheet);
   const search = String(wardName || '').trim().toLowerCase();
 
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.WARD]).trim().toLowerCase() === search) {
-      return JSON.stringify({ success: true, record: toObj_(data[i]) });
+  // Search from bottom for the most recent record
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][col.ward]).trim().toLowerCase() === search) {
+      return JSON.stringify({ success: true, record: toObj_(data[i], col) });
     }
   }
   return JSON.stringify({ success: true, record: null });
@@ -123,12 +104,13 @@ function getLogs(wardName) {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return JSON.stringify({ success: true, logs: [] });
 
-  const data = sheet.getRange(Math.max(2, lastRow - 99), 1, Math.min(lastRow - 1, 100), DATA_HEADERS.length).getValues();
+  const data = sheet.getRange(Math.max(2, lastRow - 99), 1, Math.min(lastRow - 1, 100), sheet.getLastColumn()).getValues();
+  const col = getColMap_(sheet);
   const filter = wardName ? String(wardName).trim().toLowerCase() : null;
   const logs = data.reverse()
-    .filter(r => !filter || String(r[COL.WARD]).trim().toLowerCase() === filter)
+    .filter(r => !filter || String(r[col.ward]).trim().toLowerCase() === filter)
     .slice(0, 20)
-    .map(toObj_);
+    .map(r => toObj_(r, col));
 
   return JSON.stringify({ success: true, logs: logs });
 }
@@ -137,42 +119,50 @@ function saveRecord(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const rsh = ss.getSheetByName(RECORDS_SHEET) || initSheets().rsh;
   const lsh = ss.getSheetByName(LOGS_SHEET) || initSheets().lsh;
+  
+  const colR = getColMap_(rsh);
+  const colL = getColMap_(lsh);
 
-  var row = new Array(DATA_HEADERS.length).fill('');
-  row[COL.TS]     = new Date();
-  row[COL.WARD]   = data.ward || '';
-  row[COL.WORKER] = data.worker || '';
-  row[COL.R_PCT]  = Number(data.reagent) || 0;
-  row[COL.R_EXP]  = data.reagentExpiry || '';
-  row[COL.W_PCT]  = Number(data.wash) || 0;
-  row[COL.W_EXP]  = data.washExpiry || '';
-  row[COL.Q_PCT]  = Number(data.qc) || 0;
-  row[COL.Q_EXP]  = data.qcExpiry || '';
-  row[COL.CMT]    = data.comment || '';
-  row[COL.DP]     = data.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
-  row[COL.CD]     = data.condition ? 'ทำ' : 'ไม่ได้ทำ';
-  row[COL.WASTE]  = data.waste || 'ไม่ได้ทิ้ง Waste';
-  row[COL.R_LOT]  = data.reagentLot || '';
-  row[COL.W_LOT]  = data.washLot || '';
-  row[COL.Q_LOT]  = data.qcLot || '';
+  function createRow(col) {
+    var row = new Array(Math.max(...Object.values(col)) + 1).fill('');
+    row[col.ts]     = new Date();
+    row[col.ward]   = data.ward || '';
+    row[col.worker] = data.worker || '';
+    row[col.r_pct]  = Number(data.reagent) || 0;
+    row[col.r_exp]  = data.reagentExpiry || '';
+    row[col.w_pct]  = Number(data.wash) || 0;
+    row[col.w_exp]  = data.washExpiry || '';
+    row[col.q_pct]  = Number(data.qc) || 0;
+    row[col.q_exp]  = data.qcExpiry || '';
+    row[col.cmt]    = data.comment || '';
+    row[col.dp]     = data.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
+    row[col.cd]     = data.condition ? 'ทำ' : 'ไม่ได้ทำ';
+    row[col.waste]  = data.waste || 'ไม่ได้ทิ้ง Waste';
+    row[col.r_lot]  = data.reagentLot || '';
+    row[col.w_lot]  = data.washLot || '';
+    row[col.q_lot]  = data.qcLot || '';
+    return row;
+  }
 
-  // Upsert in Records
+  // Update Records (Upsert)
   const recData = rsh.getDataRange().getValues();
   var targetRow = -1;
   for (var i = 1; i < recData.length; i++) {
-    if (String(recData[i][COL.WARD]).trim().toLowerCase() === String(data.ward).trim().toLowerCase()) {
+    if (String(recData[i][colR.ward]).trim().toLowerCase() === String(data.ward).trim().toLowerCase()) {
       targetRow = i + 1;
       break;
     }
   }
 
-  if (targetRow > 0) rsh.getRange(targetRow, 1, 1, row.length).setValues([row]);
-  else { rsh.appendRow(row); targetRow = rsh.getLastRow(); }
-  fmtRow_(rsh, targetRow);
+  const rowR = createRow(colR);
+  if (targetRow > 0) rsh.getRange(targetRow, 1, 1, rowR.length).setValues([rowR]);
+  else { rsh.appendRow(rowR); targetRow = rsh.getLastRow(); }
+  fmtRow_(rsh, targetRow, colR);
 
-  // Append in Logs
-  lsh.appendRow(row);
-  fmtRow_(lsh, lsh.getLastRow());
+  // Append to Logs
+  const rowL = createRow(colL);
+  lsh.appendRow(rowL);
+  fmtRow_(lsh, lsh.getLastRow(), colL);
 
   return JSON.stringify({ success: true, message: 'บันทึกข้อมูลเรียบร้อย' });
 }
@@ -188,10 +178,16 @@ function initSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const colors = { header: '#0a4d68', user: '#1e3a5f', ward: '#088395' };
 
+  const headers = [
+    'Timestamp', 'Ward', 'Worker', 'Reagent (%)', 'Reagent Expiry', 'Wash (%)', 'Wash Expiry', 
+    'QC (%)', 'QC Expiry', 'Comment', 'Deprotein', 'Condition', 'Waste', 
+    'Reagent Lot', 'Wash Lot', 'QC Lot'
+  ];
+
   // Data Sheets
   [RECORDS_SHEET, LOGS_SHEET].forEach(name => {
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    sh.getRange(1, 1, 1, DATA_HEADERS.length).setValues([DATA_HEADERS])
+    sh.getRange(1, 1, 1, headers.length).setValues([headers])
       .setFontWeight('bold').setBackground(colors.header).setFontColor('#ffffff').setHorizontalAlignment('center');
     sh.setFrozenRows(1);
   });
@@ -214,20 +210,6 @@ function initSheets() {
   return { rsh: ss.getSheetByName(RECORDS_SHEET), lsh: ss.getSheetByName(LOGS_SHEET), ush: ush, wsh: wsh };
 }
 
-function toObj_(r) {
-  return {
-    timestamp: r[COL.TS] ? r[COL.TS].toString() : '',
-    ward: r[COL.WARD] || '', worker: r[COL.WORKER] || '',
-    reagent: Number(r[COL.R_PCT]) || 0, reagentExpiry: isoDate_(r[COL.R_EXP]), reagentLot: r[COL.R_LOT] || '',
-    wash: Number(r[COL.W_PCT]) || 0, washExpiry: isoDate_(r[COL.W_EXP]), washLot: r[COL.W_LOT] || '',
-    qc: Number(r[COL.Q_PCT]) || 0, qcExpiry: isoDate_(r[COL.Q_EXP]), qcLot: r[COL.Q_LOT] || '',
-    comment: r[COL.CMT] || '',
-    deprotein: String(r[COL.DP]) === 'ทำ' || String(r[COL.DP]).toUpperCase() === 'TRUE',
-    condition: String(r[COL.CD]) === 'ทำ' || String(r[COL.CD]).toUpperCase() === 'TRUE',
-    waste: r[COL.WASTE] || 'ไม่ได้ทิ้ง Waste'
-  };
-}
-
 function isoDate_(v) {
   if (!v) return '';
   try {
@@ -237,13 +219,21 @@ function isoDate_(v) {
   } catch (e) { return String(v); }
 }
 
-function fmtRow_(sh, rowNum) {
-  sh.getRange(rowNum, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
-  [5, 7, 9].forEach(c => sh.getRange(rowNum, c).setNumberFormat('dd/MM/yyyy'));
+function fmtRow_(sh, rowNum, col) {
+  if (col.ts >= 0) sh.getRange(rowNum, col.ts + 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+  [col.r_exp, col.w_exp, col.q_exp].forEach(c => {
+    if (c >= 0) sh.getRange(rowNum, c + 1).setNumberFormat('dd/MM/yyyy');
+  });
 }
 
 function logLogin_(u, f) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lsh = ss.getSheetByName(LOGS_SHEET) || initSheets().lsh;
-  lsh.appendRow([new Date(), '(Login)', f, '', '', '', '', '', '', 'User logged in: ' + u, '', '', '']);
+  const col = getColMap_(lsh);
+  var row = new Array(Math.max(...Object.values(col)) + 1).fill('');
+  row[col.ts] = new Date();
+  row[col.ward] = '(Login)';
+  row[col.worker] = f;
+  row[col.cmt] = 'User logged in: ' + u;
+  lsh.appendRow(row);
 }
