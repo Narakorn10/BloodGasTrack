@@ -3,6 +3,13 @@
 //  Consolidated & Standardized for Next.js API
 // =====================================================================
 
+const RECORDS_SHEET = 'Records';
+const LOGS_SHEET    = 'Logs';
+const USERS_SHEET   = 'Users';
+const WARDS_SHEET   = 'Wards';
+
+const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active', 'Ward'];
+
 // ─── Utility: Dynamic Column Mapping ───────────────────────────────
 
 function getColMap_(sheet) {
