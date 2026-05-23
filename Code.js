@@ -55,6 +55,41 @@ function toObj_(r, col) {
   };
 }
 
+// ─── Entry Points ──────────────────────────────────────────────────
+
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Blood Gas Tracker')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
+
+function doPost(e) {
+  var response;
+  try {
+    var body = JSON.parse(e.postData.contents);
+    var action = body.action;
+    var data = body.data || {};
+
+    if (action === 'login') {
+      response = login(body.username, body.password);
+    } else if (action === 'getLastRecord') {
+      response = getLastRecord(body.ward);
+    } else if (action === 'getLogs') {
+      response = getLogs(body.ward);
+    } else if (action === 'saveRecord') {
+      response = saveRecord(data);
+    } else if (action === 'getWards') {
+      response = getWards();
+    } else {
+      response = JSON.stringify({ success: false, message: 'Invalid Action: ' + action });
+    }
+  } catch (err) {
+    response = JSON.stringify({ success: false, message: 'Server Error: ' + err.toString() });
+  }
+  return ContentService.createTextOutput(response).setMimeType(ContentService.MimeType.JSON);
+}
+
 // ─── Actions ────────────────────────────────────────────────────────
 
 function login(username, password) {
