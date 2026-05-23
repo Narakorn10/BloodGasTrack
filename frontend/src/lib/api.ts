@@ -6,22 +6,23 @@ const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL
 
 // Mock Data for local testing (matches v5.5 Backend Structure)
 let MOCK_DATA: any = {
-  getLastRecord: {
-    success: true,
-    record: {
+  records: {
+    "อายุกรรมชาย 2": {
       timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)",
-      reagent: 75, reagentExpiry: "2026-12-31", reagentLot: "LOT-R-MOCK",
-      wash: 42, washExpiry: "2026-08-15", washLot: "LOT-W-MOCK",
-      qc: 90, qcExpiry: "2026-11-20", qcLot: "LOT-Q-MOCK",
-      comment: "โหมดจำลองสถานะแอป", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste"
+      reagent: 75, reagentExpiry: "2026-12-31", reagentLot: "LOT-R-MED",
+      wash: 42, washExpiry: "2026-08-15", washLot: "LOT-W-MED",
+      qc: 90, qcExpiry: "2026-11-20", qcLot: "LOT-Q-MED",
+      comment: "ข้อมูลจำลองตึกอายุกรรม", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste"
+    },
+    "NICU": {
+      timestamp: new Date().toISOString(), ward: "NICU", worker: "พยาบาล (Mock)",
+      reagent: 15, reagentExpiry: "2026-06-01", reagentLot: "LOT-R-NICU",
+      wash: 88, washExpiry: "2026-10-10", washLot: "LOT-W-NICU",
+      qc: 45, qcExpiry: "2026-07-20", qcLot: "LOT-Q-NICU",
+      comment: "ข้อมูลจำลองตึกเด็กแรกเกิด", deprotein: false, condition: true, waste: "ทิ้ง Waste"
     }
   },
-  getLogs: {
-    success: true,
-    logs: [
-      { timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)", reagent: 75, wash: 42, qc: 90, comment: "ระบบพร้อมใช้งาน", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste" },
-    ]
-  },
+  logs: [],
   saveRecord: { success: true, message: "บันทึกสำเร็จ (Mock Mode)" },
   login: {
     success: true,
@@ -42,19 +43,26 @@ export const api = {
       if (action === 'saveRecord') {
         const newRec = { 
           ...payload.data, 
-          timestamp: new Date().toLocaleString(), 
+          timestamp: new Date().toISOString(), 
           ward: payload.data.ward, 
           worker: payload.data.worker 
         };
-        MOCK_DATA.getLastRecord.record = newRec;
-        MOCK_DATA.getLogs.logs.unshift(newRec);
+        MOCK_DATA.records[payload.data.ward] = newRec;
+        MOCK_DATA.logs.unshift(newRec);
         return MOCK_DATA.saveRecord;
       }
 
       if (action === 'login') return MOCK_DATA.login;
       if (action === 'getWards') return MOCK_DATA.getWards;
-      if (action === 'getLastRecord') return MOCK_DATA.getLastRecord;
-      if (action === 'getLogs') return MOCK_DATA.getLogs;
+      if (action === 'getLastRecord') {
+        const ward = payload.ward || "";
+        return { success: true, record: MOCK_DATA.records[ward] || null };
+      }
+      if (action === 'getLogs') {
+        const ward = payload.ward;
+        const filteredLogs = ward ? MOCK_DATA.logs.filter((l: any) => l.ward === ward) : MOCK_DATA.logs;
+        return { success: true, logs: filteredLogs.slice(0, 20) };
+      }
       
       return { success: false, message: "No Mock Data for: " + action };
     }

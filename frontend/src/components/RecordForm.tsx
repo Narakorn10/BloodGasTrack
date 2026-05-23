@@ -89,11 +89,28 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         qcLot: initialData.qcLot || "",
         qcExpiry: initialData.qcExpiry || "",
       });
-      // Reset replacement toggles
-      setIsReplacingR(false);
-      setIsReplacingW(false);
-      setIsReplacingQ(false);
+    } else {
+      // Clear form if no initial data (new ward or no records)
+      reset({
+        reagent: "",
+        reagentExpiry: "",
+        reagentLot: "",
+        wash: "",
+        washExpiry: "",
+        washLot: "",
+        qc: "",
+        qcExpiry: "",
+        qcLot: "",
+        comment: "",
+        deprotein: false,
+        condition: false,
+        waste: "ไม่ได้ทิ้ง Waste",
+      });
     }
+    // Reset replacement toggles in both cases
+    setIsReplacingR(false);
+    setIsReplacingW(false);
+    setIsReplacingQ(false);
   }, [initialData, reset]);
 
   // Watch all values and send to parent for Live Preview with Debounce

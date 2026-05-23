@@ -16,11 +16,12 @@ interface GaugeProps {
 export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
-  const progress = (val / 100) * circumference;
+  const numericVal = Number(val) || 0;
+  const progress = (numericVal / 100) * circumference;
   
   const diff = exp ? Math.floor((new Date(exp).getTime() - new Date().setHours(0,0,0,0)) / 86400000) : 999;
-  const isCritical = diff < 0 || val < 10;
-  const isWarning = (diff >= 0 && diff <= 30) || (val >= 10 && val <= 25);
+  const isCritical = diff < 0 || numericVal < 10;
+  const isWarning = (diff >= 0 && diff <= 30) || (numericVal >= 10 && numericVal <= 25);
 
   const strokeColor = color;
 
@@ -48,8 +49,8 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-sm font-bold font-mono" style={{ color: strokeColor }}>{val ?? 0}</span>
-          <span className="text-[8px] font-bold -mt-0.5" style={{ color: strokeColor }}>%</span>
+          <span className="text-base font-bold font-mono leading-none" style={{ color: strokeColor }}>{numericVal}</span>
+          <span className="text-[9px] font-bold" style={{ color: strokeColor }}>%</span>
         </div>
       </div>
 
