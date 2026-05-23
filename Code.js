@@ -9,28 +9,28 @@ function getColMap_(sheet) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const map = {};
   headers.forEach((h, i) => {
-    const key = h.replace(/[\s(%)]/g, '').toLowerCase(); // Normalizes headers like "Reagent (%)" to "reagent"
+    // Normalize: remove spaces, symbols, and lowercase (e.g., "Reagent (%)" -> "reagent")
+    const key = String(h).replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
     map[key] = i;
   });
   
-  // Specific mappings for known headers
   return {
-    ts: headers.indexOf('Timestamp'),
-    ward: headers.indexOf('Ward'),
-    worker: headers.indexOf('Worker'),
-    r_pct: headers.indexOf('Reagent (%)'),
-    r_exp: headers.indexOf('Reagent Expiry'),
-    r_lot: headers.indexOf('Reagent Lot'),
-    w_pct: headers.indexOf('Wash (%)'),
-    w_exp: headers.indexOf('Wash Expiry'),
-    w_lot: headers.indexOf('Wash Lot'),
-    q_pct: headers.indexOf('QC (%)'),
-    q_exp: headers.indexOf('QC Expiry'),
-    q_lot: headers.indexOf('QC Lot'),
-    cmt: headers.indexOf('Comment'),
-    dp: headers.indexOf('Deprotein'),
-    cd: headers.indexOf('Condition'),
-    waste: headers.indexOf('Waste')
+    ts: map['timestamp'],
+    ward: map['ward'],
+    worker: map['worker'],
+    r_pct: map['reagent'],
+    r_exp: map['reagentexpiry'],
+    r_lot: map['reagentlot'],
+    w_pct: map['wash'],
+    w_exp: map['washexpiry'],
+    w_lot: map['washlot'],
+    q_pct: map['qc'],
+    q_exp: map['qcexpiry'],
+    q_lot: map['qclot'],
+    cmt: map['comment'],
+    dp: map['deprotein'],
+    cd: map['condition'],
+    waste: map['waste']
   };
 }
 
