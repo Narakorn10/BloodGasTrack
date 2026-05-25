@@ -34,6 +34,15 @@ export default function DashboardPage() {
         api.post("getLastRecord", { ward: targetWard }),
         api.post("getLogs", { ward: targetWard })
       ]);
+      
+      if (recRes._debug_raw) {
+        console.group(`🔍 [Diagnostic] Ward: ${targetWard}`);
+        console.log("Column Mapping:", recRes._debug_col);
+        console.log("Raw Row Data:", recRes._debug_raw);
+        console.log("Parsed Record:", recRes.record);
+        console.groupEnd();
+      }
+
       setRecord(recRes.record);
       setLogs(logRes.logs || []);
     } catch {

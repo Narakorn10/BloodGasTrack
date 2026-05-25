@@ -16,14 +16,17 @@ interface GaugeProps {
 export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
-  const numericVal = Number(val) || 0;
+  
+  // Distinguish between 0 (number) and null/undefined (missing)
+  const isMissing = val === null || val === undefined;
+  const numericVal = isMissing ? 0 : Number(val);
   const progress = (numericVal / 100) * circumference;
   
   const diff = exp ? Math.floor((new Date(exp).getTime() - new Date().setHours(0,0,0,0)) / 86400000) : 999;
-  const isCritical = diff < 0 || numericVal < 10;
-  const isWarning = (diff >= 0 && diff <= 30) || (numericVal >= 10 && numericVal <= 25);
+  const isCritical = !isMissing && (diff < 0 || numericVal < 10);
+  const isWarning = !isMissing && ((diff >= 0 && diff <= 30) || (numericVal >= 10 && numericVal <= 25));
 
-  const strokeColor = color;
+  const strokeColor = isMissing ? "#cbd5e1" : color;
 
   return (
     <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center gap-4 relative overflow-hidden shadow-sm">
@@ -36,21 +39,25 @@ export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
             stroke="#f1f5f9"
             strokeWidth="6"
           />
-          <motion.circle
-            cx="32" cy="32" r={radius}
-            fill="transparent"
-            stroke={strokeColor}
-            strokeWidth="6"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - progress }}
-            transition={{ duration: 0.5, ease: "linear" }}
-            strokeLinecap="round"
-          />
+          {!isMissing && (
+            <motion.circle
+              cx="32" cy="32" r={radius}
+              fill="transparent"
+              stroke={strokeColor}
+              strokeWidth="6"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: circumference - progress }}
+              transition={{ duration: 0.5, ease: "linear" }}
+              strokeLinecap="round"
+            />
+          )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base font-bold font-mono leading-none" style={{ color: strokeColor }}>{numericVal}</span>
-          <span className="text-[9px] font-bold" style={{ color: strokeColor }}>%</span>
+          <span className="text-base font-bold font-mono leading-none" style={{ color: strokeColor }}>
+            {isMissing ? "–" : numericVal}
+          </span>
+          {!isMissing && <span className="text-[9px] font-bold" style={{ color: strokeColor }}>%</span>}
         </div>
       </div>
 

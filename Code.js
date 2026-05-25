@@ -1,6 +1,6 @@
 // =====================================================================
-//  Blood Gas Reagent Tracker  —  Code.gs  (v5.7 - CLEAN RESPONSE)
-//  Fix: Resolve double-stringification and robust percentage mapping
+//  Blood Gas Reagent Tracker  —  Code.gs  (v5.8 - DIAGNOSTIC)
+//  Fix: Differentiate between 0 and null, and add column diagnostics
 // =====================================================================
 
 const RECORDS_SHEET = 'Records';
@@ -54,9 +54,9 @@ function getColMap_(sheet) {
 }
 
 function parseAnyNum_(v) {
-  if (v === null || v === undefined || v === '') return 0;
+  if (v === null || v === undefined || v === '') return null; // Use null for empty
   let n = (typeof v === 'string') ? parseFloat(v.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim()) : Number(v);
-  if (isNaN(n)) return 0;
+  if (isNaN(n)) return null;
   if (n > 0 && n <= 1) return Math.round(n * 100);
   return n;
 }
@@ -108,7 +108,7 @@ function doPost(e) {
   }
 }
 
-// ─── Actions (Returning Objects, not Strings) ───────────────────────
+// ─── Actions ────────────────────────────────────────────────────────
 
 function login(u, p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_SHEET) || initSheets().ush;
@@ -136,7 +136,12 @@ function getLastRecord(wardName) {
   const search = String(wardName || '').trim().toLowerCase();
   for (let i = data.length - 1; i >= 1; i--) {
     if (String(data[i][col.ward]).trim().toLowerCase() === search) {
-      return { success: true, record: toObj_(data[i], col) };
+      return { 
+        success: true, 
+        record: toObj_(data[i], col),
+        _debug_col: col,
+        _debug_raw: data[i].slice(0, 16)
+      };
     }
   }
   return { success: true, record: null };
