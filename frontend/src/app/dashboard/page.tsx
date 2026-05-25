@@ -56,7 +56,10 @@ export default function DashboardPage() {
   useEffect(() => {
     const init = async () => {
       const savedUserStr = localStorage.getItem("user");
-      if (!savedUserStr) return;
+      if (!savedUserStr) {
+        setLoading(false);
+        return;
+      }
       const loggedUser = JSON.parse(savedUserStr);
       setUser(loggedUser);
 
@@ -75,6 +78,7 @@ export default function DashboardPage() {
         }
       } catch (err) {
         console.error("Init Error:", err);
+      } finally {
         setLoading(false);
       }
     };

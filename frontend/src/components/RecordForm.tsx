@@ -461,7 +461,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
           <Send size={22} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
         )}
         <span className="relative z-10">
-          {isSubmitting ? "⏳ กำลังบันทึกข้อมูล…" : "💾 บันทึกข้อมูลลงในระบบ"}
+          {isSubmitting ? "กำลังบันทึก…" : "บันทึก"}
         </span>
       </motion.button>
     </form>
