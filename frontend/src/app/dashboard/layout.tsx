@@ -4,23 +4,32 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 
+interface User {
+  username: string;
+  fullName: string;
+  role: string;
+}
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (!savedUser) {
-      setUser({ username: "admin", fullName: "ผู้ดูแลระบบ (Mock)", role: "admin" });
-    } else {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const initialize = async () => {
+      const savedUser = localStorage.getItem("user");
+      if (!savedUser) {
+        setUser({ username: "admin", fullName: "ผู้ดูแลระบบ (Mock)", role: "admin" });
+      } else {
+        setUser(JSON.parse(savedUser));
+      }
+      setLoading(false);
+    };
+    initialize();
   }, [router]);
 
   const handleLogout = () => {

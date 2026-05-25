@@ -1,10 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LogOut, User, Activity } from "lucide-react";
+import { LogOut, Activity } from "lucide-react";
+
+interface User {
+  username: string;
+  fullName: string;
+  role: string;
+}
 
 interface HeaderProps {
-  user: any;
+  user: User | null;
   onLogout: () => void;
 }
 

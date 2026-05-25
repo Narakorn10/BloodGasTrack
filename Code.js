@@ -13,41 +13,59 @@ const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active', 'War
 // ─── Utility: Dynamic Column Mapping ───────────────────────────────
 
 function getColMap_(sheet) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
   const map = {};
   headers.forEach((h, i) => {
-    // Normalize: remove spaces, symbols, and lowercase (e.g., "Reagent (%)" -> "reagent")
     const key = String(h).replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
     map[key] = i;
   });
   
+  const getIdx = (k, def) => (map[k] !== undefined) ? map[k] : def;
+
   return {
-    ts: map['timestamp'],
-    ward: map['ward'],
-    worker: map['worker'],
-    r_pct: map['reagent'],
-    r_exp: map['reagentexpiry'],
-    r_lot: map['reagentlot'],
-    w_pct: map['wash'],
-    w_exp: map['washexpiry'],
-    w_lot: map['washlot'],
-    q_pct: map['qc'],
-    q_exp: map['qcexpiry'],
-    q_lot: map['qclot'],
-    cmt: map['comment'],
-    dp: map['deprotein'],
-    cd: map['condition'],
-    waste: map['waste']
+    ts: getIdx('timestamp', 0),
+    ward: getIdx('ward', 1),
+    worker: getIdx('worker', 2),
+    r_pct: getIdx('reagent', 3),
+    r_exp: getIdx('reagentexpiry', 4),
+    r_lot: getIdx('reagentlot', 13),
+    w_pct: getIdx('wash', 5),
+    w_exp: getIdx('washexpiry', 6),
+    w_lot: getIdx('washlot', 14),
+    q_pct: getIdx('qc', 7),
+    q_exp: getIdx('qcexpiry', 8),
+    q_lot: getIdx('qclot', 15),
+    cmt: getIdx('comment', 9),
+    dp: getIdx('deprotein', 10),
+    cd: getIdx('condition', 11),
+    waste: getIdx('waste', 12)
   };
 }
 
 function toObj_(r, col) {
+  const parsePct = (v) => {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'string') v = v.replace(/%/g, '').trim();
+    let n = Number(v);
+    if (isNaN(n)) return 0;
+    // If value is a small decimal (like 0.75 from a % formatted cell), convert to 0-100
+    if (n > 0 && n < 1.1) return Math.round(n * 100);
+    return n;
+  };
+
   return {
-    timestamp: r[col.ts] ? r[col.ts].toString() : '',
-    ward: r[col.ward] || '', worker: r[col.worker] || '',
-    reagent: Number(r[col.r_pct]) || 0, reagentExpiry: isoDate_(r[col.r_exp]), reagentLot: r[col.r_lot] || '',
-    wash: Number(r[col.w_pct]) || 0, washExpiry: isoDate_(r[col.w_exp]), washLot: r[col.w_lot] || '',
-    qc: Number(r[col.q_pct]) || 0, qcExpiry: isoDate_(r[col.q_exp]), qcLot: r[col.q_lot] || '',
+    timestamp: r[col.ts] ? (r[col.ts] instanceof Date ? r[col.ts].toISOString() : r[col.ts].toString()) : '',
+    ward: r[col.ward] || '', 
+    worker: r[col.worker] || '',
+    reagent: parsePct(r[col.r_pct]), 
+    reagentExpiry: isoDate_(r[col.r_exp]), 
+    reagentLot: r[col.r_lot] || '',
+    wash: parsePct(r[col.w_pct]), 
+    washExpiry: isoDate_(r[col.w_exp]), 
+    washLot: r[col.w_lot] || '',
+    qc: parsePct(r[col.q_pct]), 
+    qcExpiry: isoDate_(r[col.q_exp]), 
+    qcLot: r[col.q_lot] || '',
     comment: r[col.cmt] || '',
     deprotein: String(r[col.dp]) === 'ทำ' || String(r[col.dp]).toUpperCase() === 'TRUE',
     condition: String(r[col.cd]) === 'ทำ' || String(r[col.cd]).toUpperCase() === 'TRUE',

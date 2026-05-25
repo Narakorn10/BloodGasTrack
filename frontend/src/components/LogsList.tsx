@@ -2,9 +2,28 @@
 
 import { motion } from "framer-motion";
 import { fmtDT, fmtD } from "@/lib/utils";
-import { User, Calendar, Droplets, CheckCircle2, Trash2, MessageCircle } from "lucide-react";
+import { User, Calendar, CheckCircle2, Trash2, MessageCircle } from "lucide-react";
 
-export function LogsList({ logs }: { logs: any[] }) {
+interface BloodGasRecord {
+  timestamp: string;
+  ward: string;
+  worker: string;
+  reagent: number;
+  reagentExpiry: string;
+  reagentLot: string;
+  wash: number;
+  washExpiry: string;
+  washLot: string;
+  qc: number;
+  qcExpiry: string;
+  qcLot: string;
+  comment: string;
+  deprotein: boolean;
+  condition: boolean;
+  waste: string;
+}
+
+export function LogsList({ logs }: { logs: BloodGasRecord[] }) {
   if (!logs || logs.length === 0) {
     return <div className="py-10 text-center text-slate-400">ยังไม่มีประวัติการบันทึก</div>;
   }
@@ -92,7 +111,7 @@ export function LogsList({ logs }: { logs: any[] }) {
             {log.comment && (
               <div className="mt-2 bg-slate-50 rounded-xl p-3 text-sm text-slate-600 italic flex gap-2 border border-slate-100">
                 <MessageCircle size={16} className="text-slate-400 shrink-0 mt-0.5" />
-                "{log.comment}"
+                &quot;{log.comment}&quot;
               </div>
             )}
           </motion.div>

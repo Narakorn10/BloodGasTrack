@@ -6,7 +6,7 @@ import * as z from "zod";
 import { api } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Droplets, CheckCircle2, Trash2, Send, MessageCircle, AlertCircle, PenLine, RotateCw } from "lucide-react";
+import { Droplets, CheckCircle2, Trash2, Send, MessageCircle, PenLine, RotateCw } from "lucide-react";
 
 const formSchema = z.object({
   reagent: z.string().min(1, "กรุณากรอกปริมาณ"),
@@ -26,16 +26,40 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface User {
+  username: string;
+  fullName: string;
+  role: string;
+}
+
+interface BloodGasRecord {
+  reagent: number;
+  reagentExpiry: string;
+  reagentLot: string;
+  wash: number;
+  washExpiry: string;
+  washLot: string;
+  qc: number;
+  qcExpiry: string;
+  qcLot: string;
+  worker: string;
+  timestamp: string;
+  deprotein: boolean;
+  condition: boolean;
+  waste: string;
+  comment: string;
+}
+
 interface RecordFormProps {
   ward: string;
   onSuccess: () => void;
   showToast: (msg: string, err?: boolean) => void;
-  onValuesChange?: (data: any) => void;
-  initialData?: any;
+  onValuesChange?: (data: Partial<BloodGasRecord>) => void;
+  initialData?: BloodGasRecord | null;
 }
 
 export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initialData }: RecordFormProps) {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // States for toggling "Replace Reagent"
@@ -50,8 +74,8 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     reset,
     watch,
     setValue,
-    formState: { errors, isDirty },
-  } = useForm<any>({
+    formState: { errors },
+  } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       reagent: "",
@@ -166,7 +190,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
       } else {
         showToast(res.message || "บันทึกไม่สำเร็จ", true);
       }
-    } catch (err) {
+    } catch {
       showToast("เชื่อมต่อ API ไม่สำเร็จ", true);
     } finally {
       setIsSubmitting(false);

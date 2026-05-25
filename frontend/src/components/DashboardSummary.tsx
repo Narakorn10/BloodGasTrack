@@ -2,7 +2,25 @@
 
 import { motion } from "framer-motion";
 import { fmtDT, fmtD } from "@/lib/utils";
-import { AlertTriangle, Clock, User, MessageCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { Clock, User, MessageCircle, CheckCircle2, Trash2 } from "lucide-react";
+
+interface BloodGasRecord {
+  reagent: number;
+  reagentExpiry: string;
+  reagentLot: string;
+  wash: number;
+  washExpiry: string;
+  washLot: string;
+  qc: number;
+  qcExpiry: string;
+  qcLot: string;
+  worker: string;
+  timestamp: string;
+  deprotein: boolean;
+  condition: boolean;
+  waste: string;
+  comment: string;
+}
 
 interface GaugeProps {
   label: string;
@@ -10,10 +28,9 @@ interface GaugeProps {
   exp: string;
   lot: string;
   color: string;
-  icon: React.ReactNode;
 }
 
-export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) {
+export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
   const numericVal = Number(val) || 0;
@@ -72,7 +89,7 @@ export function CompactGauge({ label, val, exp, lot, color, icon }: GaugeProps) 
   );
 }
 
-export function DashboardSummary({ record }: { record: any }) {
+export function DashboardSummary({ record }: { record: BloodGasRecord | null }) {
   if (!record) return (
     <div className="py-10 text-center space-y-3">
       <div className="text-4xl">📊</div>
@@ -90,7 +107,6 @@ export function DashboardSummary({ record }: { record: any }) {
           exp={record.reagentExpiry} 
           lot={record.reagentLot}
           color="#0ea5e9"
-          icon={<div className="w-2 h-2 rounded-full bg-[#0ea5e9]" />}
         />
         <CompactGauge 
           label="Wash" 
@@ -98,7 +114,6 @@ export function DashboardSummary({ record }: { record: any }) {
           exp={record.washExpiry} 
           lot={record.washLot}
           color="#8b5cf6"
-          icon={<div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />}
         />
         <CompactGauge 
           label="QC" 
@@ -106,7 +121,6 @@ export function DashboardSummary({ record }: { record: any }) {
           exp={record.qcExpiry} 
           lot={record.qcLot}
           color="#10b981"
-          icon={<div className="w-2 h-2 rounded-full bg-[#10b981]" />}
         />
       </div>
 

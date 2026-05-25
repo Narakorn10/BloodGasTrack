@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { Eye, EyeOff, Activity, Loader2, User, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,7 +35,7 @@ export default function LoginPage() {
       } else {
         setError(res.message || "Username หรือ Password ไม่ถูกต้อง");
       }
-    } catch (err) {
+    } catch {
       setError("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
     } finally {
       setLoading(false);

@@ -9,15 +9,41 @@ import { LogsList } from "@/components/LogsList";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
 
+interface BloodGasRecord {
+  timestamp: string;
+  ward: string;
+  worker: string;
+  reagent: number;
+  reagentExpiry: string;
+  reagentLot: string;
+  wash: number;
+  washExpiry: string;
+  washLot: string;
+  qc: number;
+  qcExpiry: string;
+  qcLot: string;
+  comment: string;
+  deprotein: boolean;
+  condition: boolean;
+  waste: string;
+}
+
+interface User {
+  username: string;
+  fullName: string;
+  role: string;
+  ward: string;
+}
+
 export default function DashboardPage() {
   const [ward, setWard] = useState("");
   const [wards, setWards] = useState<string[]>([]);
-  const [record, setRecord] = useState<any>(null);
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [record, setRecord] = useState<BloodGasRecord | null>(null);
+  const [previewData, setPreviewData] = useState<Partial<BloodGasRecord> | null>(null);
+  const [logs, setLogs] = useState<BloodGasRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   const showToast = (msg: string, err = false) => {
     setToast({ msg, err });
@@ -35,7 +61,7 @@ export default function DashboardPage() {
       ]);
       setRecord(recRes.record);
       setLogs(logRes.logs || []);
-    } catch (err) {
+    } catch {
       showToast("❌ การดึงข้อมูลผิดพลาด", true);
     } finally {
       setLoading(false);
@@ -73,8 +99,19 @@ export default function DashboardPage() {
 
   // Fetch data whenever selected ward changes
   useEffect(() => {
-    if (ward) fetchData(ward);
-    else if (user) setLoading(false);
+    let isMounted = true;
+    
+    const triggerFetch = async () => {
+      if (ward) {
+        await fetchData(ward);
+      } else if (user && isMounted) {
+        setLoading(false);
+      }
+    };
+
+    triggerFetch();
+    
+    return () => { isMounted = false; };
   }, [ward, fetchData, user]);
 
   const displayRecord = previewData ? { ...record, ...previewData } : record;
