@@ -14,8 +14,8 @@ interface GaugeProps {
 }
 
 export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
-...
-export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> | null }) {
+  const radius = 28;
+  const circumference = 2 * Math.PI * radius;
   const numericVal = Number(val) || 0;
   const progress = (numericVal / 100) * circumference;
   
@@ -117,7 +117,7 @@ export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> |
         <div className="flex items-center gap-2 text-xs">
           <Clock size={14} className="text-slate-400" />
           <span className="text-slate-400">เวลา:</span>
-          <span className="font-bold text-slate-600">{fmtDT(record.timestamp)}</span>
+          <span className="font-bold text-slate-600">{record.timestamp ? fmtDT(record.timestamp) : '–'}</span>
         </div>
       </div>
 
