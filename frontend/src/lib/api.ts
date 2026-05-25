@@ -42,12 +42,12 @@ const MOCK_DATA: {
 };
 
 export const api = {
-  async post(action: string, payload: Record<string, unknown> = {}) {
+  async post(action: string, payload: any = {}) {
     // 1. If GAS_URL is missing, use Mock Mode
     if (!GAS_URL) {
       console.warn(`[Mock API] Action: ${action}`, payload);
       
-      if (action === 'saveRecord') {
+      if (action === 'saveRecord' && payload.data) {
         const newRec = { 
           ...payload.data, 
           timestamp: new Date().toISOString(), 
