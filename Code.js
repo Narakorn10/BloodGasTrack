@@ -45,11 +45,15 @@ function getColMap_(sheet) {
 function toObj_(r, col) {
   const parsePct = (v) => {
     if (v === null || v === undefined || v === '') return 0;
-    if (typeof v === 'string') v = v.replace(/%/g, '').trim();
-    let n = Number(v);
+    let n;
+    if (typeof v === 'string') {
+      n = parseFloat(v.replace(/%/g, '').trim());
+    } else {
+      n = Number(v);
+    }
     if (isNaN(n)) return 0;
-    // If value is a small decimal (like 0.75 from a % formatted cell), convert to 0-100
-    if (n > 0 && n < 1.1) return Math.round(n * 100);
+    // If Google Sheets sends 0.75 for 75%, multiply by 100
+    if (n > 0 && n <= 1) return Math.round(n * 100);
     return n;
   };
 
