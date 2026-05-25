@@ -3,24 +3,7 @@
 import { motion } from "framer-motion";
 import { fmtDT, fmtD } from "@/lib/utils";
 import { Clock, User, MessageCircle, CheckCircle2, Trash2 } from "lucide-react";
-
-interface BloodGasRecord {
-  reagent: number;
-  reagentExpiry: string;
-  reagentLot: string;
-  wash: number;
-  washExpiry: string;
-  washLot: string;
-  qc: number;
-  qcExpiry: string;
-  qcLot: string;
-  worker: string;
-  timestamp: string;
-  deprotein: boolean;
-  condition: boolean;
-  waste: string;
-  comment: string;
-}
+import { BloodGasRecord } from "@/lib/types";
 
 interface GaugeProps {
   label: string;
@@ -31,8 +14,8 @@ interface GaugeProps {
 }
 
 export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
-  const radius = 28;
-  const circumference = 2 * Math.PI * radius;
+...
+export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> | null }) {
   const numericVal = Number(val) || 0;
   const progress = (numericVal / 100) * circumference;
   

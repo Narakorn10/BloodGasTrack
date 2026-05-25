@@ -8,32 +8,7 @@ import { DashboardSummary } from "@/components/DashboardSummary";
 import { LogsList } from "@/components/LogsList";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
-
-interface BloodGasRecord {
-  timestamp: string;
-  ward: string;
-  worker: string;
-  reagent: number;
-  reagentExpiry: string;
-  reagentLot: string;
-  wash: number;
-  washExpiry: string;
-  washLot: string;
-  qc: number;
-  qcExpiry: string;
-  qcLot: string;
-  comment: string;
-  deprotein: boolean;
-  condition: boolean;
-  waste: string;
-}
-
-interface User {
-  username: string;
-  fullName: string;
-  role: string;
-  ward: string;
-}
+import { BloodGasRecord, User } from "@/lib/types";
 
 export default function DashboardPage() {
   const [ward, setWard] = useState("");

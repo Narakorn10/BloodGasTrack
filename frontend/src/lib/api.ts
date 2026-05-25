@@ -1,34 +1,9 @@
 import axios from 'axios';
+import { BloodGasRecord, User } from './types';
 
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL 
   ? `https://script.google.com/macros/s/${process.env.NEXT_PUBLIC_GAS_URL}/exec`
   : null;
-
-interface BloodGasRecord {
-  timestamp: string;
-  ward: string;
-  worker: string;
-  reagent: number;
-  reagentExpiry: string;
-  reagentLot: string;
-  wash: number;
-  washExpiry: string;
-  washLot: string;
-  qc: number;
-  qcExpiry: string;
-  qcLot: string;
-  comment: string;
-  deprotein: boolean;
-  condition: boolean;
-  waste: string;
-}
-
-interface User {
-  username: string;
-  fullName: string;
-  role: string;
-  ward: string;
-}
 
 // Mock Data for local testing (matches v5.5 Backend Structure)
 const MOCK_DATA: {
