@@ -24,9 +24,9 @@ interface BloodGasRecord {
 
 interface GaugeProps {
   label: string;
-  val: number;
-  exp: string;
-  lot: string;
+  val: number | undefined;
+  exp: string | undefined;
+  lot: string | undefined;
   color: string;
 }
 
@@ -89,7 +89,7 @@ export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
   );
 }
 
-export function DashboardSummary({ record }: { record: BloodGasRecord | null }) {
+export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> | null }) {
   if (!record) return (
     <div className="py-10 text-center space-y-3">
       <div className="text-4xl">📊</div>
