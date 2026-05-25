@@ -142,6 +142,14 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   useEffect(() => {
     if (!onValuesChange) return;
 
+    // Only update preview if at least one quantity has been entered
+    const hasData = watchedValues.reagent || watchedValues.wash || watchedValues.qc;
+    
+    if (!hasData) {
+      onValuesChange({});
+      return;
+    }
+
     const timer = setTimeout(() => {
       onValuesChange({
         ...watchedValues,
