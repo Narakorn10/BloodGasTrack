@@ -16,49 +16,49 @@ function getColMap_(sheet) {
   const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
   const map = {};
   headers.forEach((h, i) => {
-    const key = String(h).replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
-    map[key] = i;
+    // Normalize: allow Thai characters, remove spaces and symbols, lowercase
+    const key = String(h).replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase(); 
+    if (key) map[key] = i;
   });
   
-  const getIdx = (k, def) => (map[k] !== undefined) ? map[k] : def;
+  const getIdx = (keys, def) => {
+    for (let k of keys) {
+      if (map[k] !== undefined) return map[k];
+    }
+    return def;
+  };
 
   return {
-    ts: getIdx('timestamp', 0),
-    ward: getIdx('ward', 1),
-    worker: getIdx('worker', 2),
-    r_pct: getIdx('reagent', 3),
-    r_exp: getIdx('reagentexpiry', 4),
-    r_lot: getIdx('reagentlot', 13),
-    w_pct: getIdx('wash', 5),
-    w_exp: getIdx('washexpiry', 6),
-    w_lot: getIdx('washlot', 14),
-    q_pct: getIdx('qc', 7),
-    q_exp: getIdx('qcexpiry', 8),
-    q_lot: getIdx('qclot', 15),
-    cmt: getIdx('comment', 9),
-    dp: getIdx('deprotein', 10),
-    cd: getIdx('condition', 11),
-    waste: getIdx('waste', 12)
+    ts: getIdx(['timestamp', 'เวลา'], 0),
+    ward: getIdx(['ward', 'วอร์ด', 'หน่วยงาน'], 1),
+    worker: getIdx(['worker', 'ผู้บันทึก', 'ชื่อ'], 2),
+    r_pct: getIdx(['reagent', 'reagentpct', 'น้ำยา'], 3),
+    r_exp: getIdx(['reagentexpiry', 'reagentexp', 'วันหมดอายุน้ำยา'], 4),
+    r_lot: getIdx(['reagentlot', 'lotreagent', 'ล็อตน้ำยา'], 13),
+    w_pct: getIdx(['wash', 'washpct', 'น้ำยาล้าง'], 5),
+    w_exp: getIdx(['washexpiry', 'washexp', 'วันหมดอายุน้ำยาล้าง'], 6),
+    w_lot: getIdx(['washlot', 'lotwash', 'ล็อตน้ำยาล้าง'], 14),
+    q_pct: getIdx(['qc', 'qcpct', 'คิวซี'], 7),
+    q_exp: getIdx(['qcexpiry', 'qcexp', 'วันหมดอายุคิวซี'], 8),
+    q_lot: getIdx(['qclot', 'lotqc', 'ล็อตคิวซี'], 15),
+    cmt: getIdx(['comment', 'หมายเหตุ', 'ข้อความ'], 9),
+    dp: getIdx(['deprotein', 'ล้างโปรตีน'], 10),
+    cd: getIdx(['condition', 'ปรับสภาพ'], 11),
+    waste: getIdx(['waste', 'ของเสีย'], 12)
   };
 }
 
 function toObj_(r, col) {
   const parsePct = (v) => {
     if (v === null || v === undefined || v === '') return 0;
-    let n;
-    if (typeof v === 'string') {
-      n = parseFloat(v.replace(/%/g, '').trim());
-    } else {
-      n = Number(v);
-    }
+    let n = (typeof v === 'string') ? parseFloat(v.replace(/%/g, '').trim()) : Number(v);
     if (isNaN(n)) return 0;
-    // If Google Sheets sends 0.75 for 75%, multiply by 100
-    if (n > 0 && n <= 1) return Math.round(n * 100);
-    return n;
+    // Handle Google Sheets % formatting (e.g., 0.75 for 75%)
+    return (n > 0 && n <= 1) ? Math.round(n * 100) : n;
   };
 
   return {
-    timestamp: r[col.ts] ? (r[col.ts] instanceof Date ? r[col.ts].toISOString() : r[col.ts].toString()) : '',
+    timestamp: r[col.ts] ? (r[col.ts] instanceof Date ? r[col.ts].toISOString() : String(r[col.ts])) : '',
     ward: r[col.ward] || '', 
     worker: r[col.worker] || '',
     reagent: parsePct(r[col.r_pct]), 
@@ -149,11 +149,14 @@ function getWards() {
 function getLastRecord(wardName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(RECORDS_SHEET) || initSheets().rsh;
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return JSON.stringify({ success: true, record: null });
+
   const data = sheet.getDataRange().getValues();
   const col = getColMap_(sheet);
   const search = String(wardName || '').trim().toLowerCase();
 
-  // Search from bottom for the most recent record
+  // Search from bottom for the most recent record (Records sheet usually has one row per ward)
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][col.ward]).trim().toLowerCase() === search) {
       return JSON.stringify({ success: true, record: toObj_(data[i], col) });
@@ -168,10 +171,10 @@ function getLogs(wardName) {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return JSON.stringify({ success: true, logs: [] });
 
-  const data = sheet.getRange(Math.max(2, lastRow - 99), 1, Math.min(lastRow - 1, 100), sheet.getLastColumn()).getValues();
+  const data = sheet.getDataRange().getValues(); // Read all instead of 100 to be safe
   const col = getColMap_(sheet);
   const filter = wardName ? String(wardName).trim().toLowerCase() : null;
-  const logs = data.reverse()
+  const logs = data.slice(1).reverse() // Skip header, reverse to get latest
     .filter(r => !filter || String(r[col.ward]).trim().toLowerCase() === filter)
     .slice(0, 20)
     .map(r => toObj_(r, col));
@@ -188,31 +191,35 @@ function saveRecord(data) {
   const colL = getColMap_(lsh);
 
   function createRow(col) {
-    var row = new Array(Math.max(...Object.values(col)) + 1).fill('');
-    row[col.ts]     = new Date();
-    row[col.ward]   = data.ward || '';
-    row[col.worker] = data.worker || '';
-    row[col.r_pct]  = Number(data.reagent) || 0;
-    row[col.r_exp]  = data.reagentExpiry || '';
-    row[col.w_pct]  = Number(data.wash) || 0;
-    row[col.w_exp]  = data.washExpiry || '';
-    row[col.q_pct]  = Number(data.qc) || 0;
-    row[col.q_exp]  = data.qcExpiry || '';
-    row[col.cmt]    = data.comment || '';
-    row[col.dp]     = data.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
-    row[col.cd]     = data.condition ? 'ทำ' : 'ไม่ได้ทำ';
-    row[col.waste]  = data.waste || 'ไม่ได้ทิ้ง Waste';
-    row[col.r_lot]  = data.reagentLot || '';
-    row[col.w_lot]  = data.washLot || '';
-    row[col.q_lot]  = data.qcLot || '';
+    var maxIdx = Math.max(...Object.values(col));
+    var row = new Array(maxIdx + 1).fill('');
+    
+    // Explicitly set values using correct indices
+    if (col.ts >= 0) row[col.ts] = new Date();
+    if (col.ward >= 0) row[col.ward] = data.ward || '';
+    if (col.worker >= 0) row[col.worker] = data.worker || '';
+    if (col.r_pct >= 0) row[col.r_pct] = Number(data.reagent) || 0;
+    if (col.r_exp >= 0) row[col.r_exp] = data.reagentExpiry || '';
+    if (col.w_pct >= 0) row[col.w_pct] = Number(data.wash) || 0;
+    if (col.w_exp >= 0) row[col.w_exp] = data.washExpiry || '';
+    if (col.q_pct >= 0) row[col.q_pct] = Number(data.qc) || 0;
+    if (col.q_exp >= 0) row[col.q_exp] = data.qcExpiry || '';
+    if (col.cmt >= 0) row[col.cmt] = data.comment || '';
+    if (col.dp >= 0) row[col.dp] = data.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
+    if (col.cd >= 0) row[col.cd] = data.condition ? 'ทำ' : 'ไม่ได้ทำ';
+    if (col.waste >= 0) row[col.waste] = data.waste || 'ไม่ได้ทิ้ง Waste';
+    if (col.r_lot >= 0) row[col.r_lot] = data.reagentLot || '';
+    if (col.w_lot >= 0) row[col.w_lot] = data.washLot || '';
+    if (col.q_lot >= 0) row[col.q_lot] = data.qcLot || '';
     return row;
   }
 
   // Update Records (Upsert)
   const recData = rsh.getDataRange().getValues();
   var targetRow = -1;
+  const wardSearch = String(data.ward).trim().toLowerCase();
   for (var i = 1; i < recData.length; i++) {
-    if (String(recData[i][colR.ward]).trim().toLowerCase() === String(data.ward).trim().toLowerCase()) {
+    if (String(recData[i][colR.ward]).trim().toLowerCase() === wardSearch) {
       targetRow = i + 1;
       break;
     }
@@ -294,10 +301,11 @@ function logLogin_(u, f) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lsh = ss.getSheetByName(LOGS_SHEET) || initSheets().lsh;
   const col = getColMap_(lsh);
-  var row = new Array(Math.max(...Object.values(col)) + 1).fill('');
-  row[col.ts] = new Date();
-  row[col.ward] = '(Login)';
-  row[col.worker] = f;
-  row[col.cmt] = 'User logged in: ' + u;
+  var maxIdx = Math.max(...Object.values(col));
+  var row = new Array(maxIdx + 1).fill('');
+  if (col.ts >= 0) row[col.ts] = new Date();
+  if (col.ward >= 0) row[col.ward] = '(Login)';
+  if (col.worker >= 0) row[col.worker] = f;
+  if (col.cmt >= 0) row[col.cmt] = 'User logged in: ' + u;
   lsh.appendRow(row);
 }
