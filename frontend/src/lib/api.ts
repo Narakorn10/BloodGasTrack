@@ -41,8 +41,16 @@ const MOCK_DATA: {
   }
 };
 
+interface ApiPayload {
+  ward?: string;
+  username?: string;
+  password?: string;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export const api = {
-  async post(action: string, payload: any = {}) {
+  async post(action: string, payload: ApiPayload = {}) {
     // 1. If GAS_URL is missing, use Mock Mode
     if (!GAS_URL) {
       console.warn(`[Mock API] Action: ${action}`, payload);

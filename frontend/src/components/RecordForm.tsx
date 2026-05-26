@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { api } from "@/lib/api";
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { Droplets, CheckCircle2, Trash2, Send, MessageCircle, PenLine, RotateCw } from "lucide-react";
 
 const formSchema = z.object({
@@ -58,6 +57,40 @@ interface RecordFormProps {
   initialData?: BloodGasRecord | null;
 }
 
+interface SectionHeaderProps {
+  icon: React.ReactNode;
+  title: string;
+  color: string;
+  isReplacing?: boolean;
+  onToggleReplace?: () => void;
+}
+
+const SectionHeader = ({ icon, title, color, isReplacing, onToggleReplace }: SectionHeaderProps) => (
+  <div className="flex items-center justify-between mb-4 mt-6 first:mt-0">
+    <div className="flex items-center gap-2">
+      <div className={`p-1.5 rounded-lg ${color} bg-opacity-10 text-opacity-100`}>
+        {icon}
+      </div>
+      <h3 className="font-bold text-slate-700 text-[11px] uppercase tracking-[0.15em]">{title}</h3>
+    </div>
+    {onToggleReplace && (
+      <button 
+        type="button"
+        onClick={onToggleReplace}
+        className={`flex items-center gap-2 px-5 py-3 rounded-full text-[11px] font-extrabold transition-all duration-150 border active:scale-95 touch-manipulation ${
+          isReplacing 
+            ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-200' 
+            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 shadow-sm'
+        }`}
+      >
+        {isReplacing ? <RotateCw size={14} className="animate-spin-slow" /> : <PenLine size={14} />}
+        <span className="ml-1 tracking-tight">{isReplacing ? "ยกเลิก" : "เปลี่ยนน้ำยา"}</span>
+      </button>
+
+    )}
+  </div>
+);
+
 export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initialData }: RecordFormProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +100,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const [isReplacingW, setIsReplacingW] = useState(false);
   const [isReplacingQ, setIsReplacingQ] = useState(false);
 
-  // Updated: Forced build for Vercel deployment success
   const {
     register,
     handleSubmit,
@@ -114,7 +146,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         qcExpiry: initialData.qcExpiry || "",
       });
     } else {
-      // Clear form if no initial data (new ward or no records)
       reset({
         reagent: "",
         reagentExpiry: "",
@@ -131,7 +162,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         waste: "ไม่ได้ทิ้ง Waste",
       });
     }
-    // Reset replacement toggles in both cases
     setIsReplacingR(false);
     setIsReplacingW(false);
     setIsReplacingQ(false);
@@ -141,15 +171,11 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const watchedValues = watch();
   useEffect(() => {
     if (!onValuesChange) return;
-
-    // Only update preview if at least one quantity has been entered
     const hasData = watchedValues.reagent || watchedValues.wash || watchedValues.qc;
-    
     if (!hasData) {
       onValuesChange({});
       return;
     }
-
     const timer = setTimeout(() => {
       onValuesChange({
         ...watchedValues,
@@ -158,7 +184,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         qc: parseFloat(watchedValues.qc) || 0,
       });
     }, 300);
-
     return () => clearTimeout(timer);
   }, [watchedValues, onValuesChange]);
 
@@ -170,7 +195,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
-      // v5.5 Standardized Payload: everything needed for the row goes in 'data'
       const res = await api.post("saveRecord", {
         data: {
           ...data,
@@ -184,7 +208,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
 
       if (res.success) {
         showToast("✅ บันทึกสำเร็จ");
-        // Clear quantities but keep Lot/Expiry from the record just saved
         setValue("reagent", "");
         setValue("wash", "");
         setValue("qc", "");
@@ -205,41 +228,6 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     }
   };
 
-  const SectionHeader = ({ icon, title, color, isReplacing, onToggleReplace }: { icon: React.ReactNode, title: string, color: string, isReplacing?: boolean, onToggleReplace?: () => void }) => (
-    <div className="flex items-center justify-between mb-4 mt-6 first:mt-0">
-      <div className="flex items-center gap-2">
-        <div className={`p-1.5 rounded-lg ${color} bg-opacity-10 text-opacity-100`}>
-          {icon}
-        </div>
-        <h3 className="font-bold text-slate-700 text-[11px] uppercase tracking-[0.15em]">{title}</h3>
-      </div>
-      {onToggleReplace && (
-        <motion.button 
-          type="button"
-          onClick={onToggleReplace}
-          whileTap={{ scale: 0.95 }}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-200 border ${
-            isReplacing 
-              ? 'bg-rose-500 border-rose-400 text-white' 
-              : 'bg-slate-50 border-slate-200 text-slate-500'
-          }`}
-        >
-          <div className="relative w-3.5 h-3.5 flex items-center justify-center">
-            <motion.div
-              animate={{ rotate: isReplacing ? 360 : 0 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex items-center justify-center"
-            >
-              <RotateCw size={14} className={isReplacing ? "opacity-100" : "opacity-40"} />
-            </motion.div>
-            {!isReplacing && <PenLine size={10} className="absolute z-10 opacity-60" />}
-          </div>
-          <span className="ml-1 tracking-tight">{isReplacing ? "ยกเลิก" : "เปลี่ยนน้ำยา"}</span>
-        </motion.button>
-      )}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -251,33 +239,33 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
           />
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">ปริมาณ (%)</label>
-              <div className="relative">
+              <label className="text-xs font-bold text-slate-500 ml-1">ปริมาณ (%)</label>
+              <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.reagent ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-sky-400'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.reagent ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-50'}`}
                   placeholder="0" {...register("reagent")} 
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
             </div>
-            <div className={`space-y-3 p-3 rounded-xl border-2 transition-all ${isReplacingR ? 'bg-rose-50/30 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
+            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingR ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Lot Number</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">Lot Number</label>
                 <input 
                   type="text" 
                   readOnly={!isReplacingR}
                   placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("reagentLot")} 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">วันหมดอายุ</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingR}
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("reagentExpiry")} 
                 />
               </div>
@@ -293,33 +281,33 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
           />
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">ปริมาณ (%)</label>
-              <div className="relative">
+              <label className="text-xs font-bold text-slate-500 ml-1">ปริมาณ (%)</label>
+              <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.wash ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.wash ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50'}`}
                   placeholder="0" {...register("wash")} 
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
             </div>
-            <div className={`space-y-3 p-3 rounded-xl border-2 transition-all ${isReplacingW ? 'bg-rose-50/30 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
+            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingW ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Lot Number</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">Lot Number</label>
                 <input 
                   type="text" 
                   readOnly={!isReplacingW}
                   placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("washLot")} 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">วันหมดอายุ</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingW}
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("washExpiry")} 
                 />
               </div>
@@ -335,33 +323,33 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
           />
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">ปริมาณ (%)</label>
-              <div className="relative">
+              <label className="text-xs font-bold text-slate-500 ml-1">ปริมาณ (%)</label>
+              <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none font-mono text-base ${errors.qc ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-emerald-400'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.qc ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50'}`}
                   placeholder="0" {...register("qc")} 
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
             </div>
-            <div className={`space-y-3 p-3 rounded-xl border-2 transition-all ${isReplacingQ ? 'bg-rose-50/30 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
+            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingQ ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Lot Number</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">Lot Number</label>
                 <input 
                   type="text" 
                   readOnly={!isReplacingQ}
                   placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("qcLot")} 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">วันหมดอายุ</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingQ}
-                  className={`w-full px-3 py-2 rounded-lg border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("qcExpiry")} 
                 />
               </div>
@@ -374,44 +362,42 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         <SectionHeader icon={<CheckCircle2 size={16} />} title="Preventive Maintenance & Waste" color="text-slate-500 bg-slate-500" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <motion.label 
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              className={`group cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3 shadow-sm ${watch("deprotein") ? 'border-emerald-400 bg-emerald-50 shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+            <button 
+              type="button"
+              onClick={() => setValue("deprotein", !watch("deprotein"), { shouldDirty: true })}
+              className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-95 touch-manipulation ${watch("deprotein") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
             >
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${watch("deprotein") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
-                <CheckCircle2 size={14} />
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${watch("deprotein") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                <CheckCircle2 size={16} />
               </div>
-              <input type="checkbox" className="sr-only" {...register("deprotein")} />
-              <div className="text-sm font-bold text-slate-700 uppercase tracking-tight">Deprotein</div>
-            </motion.label>
+              <div className="text-sm font-extrabold text-slate-700 uppercase tracking-tight">Deprotein</div>
+            </button>
 
-            <motion.label 
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              className={`group cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3 shadow-sm ${watch("condition") ? 'border-emerald-400 bg-emerald-50 shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${watch("condition") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
-                <CheckCircle2 size={14} />
+            <button 
+              type="button"
+              onClick={() => setValue("condition", !watch("condition"), { shouldDirty: true })}
+              className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-95 touch-manipulation ${watch("condition") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${watch("condition") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                <CheckCircle2 size={16} />
               </div>
-              <input type="checkbox" className="sr-only" {...register("condition")} />
-              <div className="text-sm font-bold text-slate-700 uppercase tracking-tight">Condition</div>
-            </motion.label>
+              <div className="text-sm font-extrabold text-slate-700 uppercase tracking-tight">Condition</div>
+            </button>
           </div>
 
-          <motion.label 
-            whileHover={{ scale: 1.01, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            className={`group cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between shadow-sm relative overflow-hidden ${watch("waste") === "ทิ้ง Waste" ? 'border-rose-400 bg-rose-50 shadow-rose-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+          <button 
+            type="button"
+            onClick={() => setValue("waste", watch("waste") === "ทิ้ง Waste" ? "ไม่ได้ทิ้ง Waste" : "ทิ้ง Waste", { shouldDirty: true })}
+            className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center justify-between active:scale-95 touch-manipulation relative overflow-hidden ${watch("waste") === "ทิ้ง Waste" ? 'border-rose-400 bg-rose-50 shadow-md shadow-rose-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
           >
             <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${watch("waste") === "ทิ้ง Waste" ? 'bg-rose-500 text-white rotate-12' : 'bg-slate-100 text-slate-400'}`}>
-                <Trash2 size={20} />
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${watch("waste") === "ทิ้ง Waste" ? 'bg-rose-500 text-white rotate-12' : 'bg-slate-100 text-slate-400'}`}>
+                <Trash2 size={22} />
               </div>
-              <div>
-                <div className={`text-sm font-bold transition-colors ${watch("waste") === "ทิ้ง Waste" ? 'text-rose-700' : 'text-slate-700'}`}>
+              <div className="text-left">
+                <div className={`text-sm font-extrabold transition-colors ${watch("waste") === "ทิ้ง Waste" ? 'text-rose-700' : 'text-slate-700'}`}>
                   {watch("waste") === "ทิ้ง Waste" ? "นำของเสียไปทิ้งแล้ว" : "ตรวจสอบถังของเสีย (Waste)"}
                 </div>
-                <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   {watch("waste") === "ทิ้ง Waste" ? "Discarded Successfully" : "Click to mark as discarded"}
                 </div>
               </div>
@@ -420,17 +406,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${watch("waste") === "ทิ้ง Waste" ? 'bg-rose-500 border-rose-500 scale-110' : 'border-slate-200 bg-transparent'}`}>
               {watch("waste") === "ทิ้ง Waste" && <div className="w-2 h-2 bg-white rounded-full" />}
             </div>
-
-            <input 
-              type="checkbox" 
-              className="sr-only" 
-              checked={watch("waste") === "ทิ้ง Waste"}
-              onChange={(e) => setValue("waste", e.target.checked ? "ทิ้ง Waste" : "ไม่ได้ทิ้ง Waste", { shouldDirty: true })}
-            />
-
-            {/* Subtle background icon */}
-            <Trash2 size={80} className={`absolute right-[-10px] bottom-[-10px] transition-all ${watch("waste") === "ทิ้ง Waste" ? 'text-rose-500/10 rotate-0' : 'text-slate-500/5 rotate-12'}`} />
-          </motion.label>
+          </button>
         </div>
       </div>
 
@@ -438,32 +414,26 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         <SectionHeader icon={<MessageCircle size={16} />} title="Handover Note" color="text-amber-500 bg-amber-500" />
         <textarea 
           placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)..." 
-          className="w-full px-4 py-4 rounded-2xl border-2 border-slate-100 bg-white focus:border-amber-400 focus:shadow-lg focus:shadow-amber-100 outline-none min-h-[100px] text-base leading-relaxed transition-all"
+          className="w-full px-5 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-white focus:border-amber-400 focus:shadow-xl focus:shadow-amber-100 outline-none min-h-[120px] text-base leading-relaxed transition-all"
           {...register("comment")}
         />
       </div>
 
-      <motion.button 
-        whileHover={{ 
-          scale: 1.02,
-          boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-          backgroundColor: "#088395"
-        }}
-        whileTap={{ scale: 0.97 }}
+      <button 
         type="submit" 
         disabled={isSubmitting}
-        className="w-full bg-[#0a4d68] text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-sky-900/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all relative overflow-hidden group"
+        className="w-full bg-[#0a4d68] active:bg-[#088395] text-white py-6 rounded-[2rem] font-extrabold text-xl shadow-xl shadow-sky-900/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation group relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
         {isSubmitting ? (
-          <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+          <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
         ) : (
-          <Send size={22} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          <Send size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
         )}
-        <span className="relative z-10">
-          {isSubmitting ? "กำลังบันทึก…" : "บันทึก"}
+        <span className="relative z-10 tracking-tight">
+          {isSubmitting ? "กำลังบันทึก…" : "บันทึกข้อมูล"}
         </span>
-      </motion.button>
+      </button>
     </form>
   );
 }

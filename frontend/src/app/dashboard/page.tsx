@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { RecordForm } from "@/components/RecordForm";
 import { WardTabs } from "@/components/WardTabs";
@@ -17,8 +17,12 @@ export default function DashboardPage() {
   const [previewData, setPreviewData] = useState<Partial<BloodGasRecord> | null>(null);
   const [logs, setLogs] = useState<BloodGasRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [user, setUser] = useState<User | null>(null);
+
+  // We'll use this ref to check ward changes without triggering dependency loops in fetchData
+  const lastWardRef = useRef("");
 
   const showToast = (msg: string, err = false) => {
     setToast({ msg, err });
@@ -27,7 +31,14 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async (targetWard: string) => {
     if (!targetWard) return;
-    setLoading(true);
+    
+    // If switching to a NEW ward, show full loading. If updating SAME ward, show refreshing.
+    if (lastWardRef.current !== targetWard) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    
     setPreviewData(null); 
     try {
       const [recRes, logRes] = await Promise.all([
@@ -35,22 +46,16 @@ export default function DashboardPage() {
         api.post("getLogs", { ward: targetWard })
       ]);
       
-      if (recRes._debug_raw) {
-        console.group(`🔍 [Diagnostic] Ward: ${targetWard}`);
-        console.log("Column Mapping:", recRes._debug_col);
-        console.log("Raw Row Data:", recRes._debug_raw);
-        console.log("Parsed Record:", recRes.record);
-        console.groupEnd();
-      }
-
       setRecord(recRes.record);
       setLogs(logRes.logs || []);
+      lastWardRef.current = targetWard;
     } catch {
       showToast("❌ การดึงข้อมูลผิดพลาด", true);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, []);
+  }, []); // Correctly breaks the infinite loop
 
   // Initialization: Load User and Wards
   useEffect(() => {
@@ -79,7 +84,10 @@ export default function DashboardPage() {
       } catch (err) {
         console.error("Init Error:", err);
       } finally {
-        setLoading(false);
+        // Only stop loading if we have a ward to fetch, 
+        // otherwise fetchData won't be triggered to stop it.
+        const firstWard = loggedUser.role !== 'admin' ? loggedUser.ward : availableWards[0];
+        if (!firstWard) setLoading(false);
       }
     };
     init();
@@ -125,20 +133,32 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
               <LayoutDashboard size={12} /> สถานะปัจจุบันของ {ward}
             </div>
-            {previewData && (
+            {(previewData || isRefreshing) && (
               <div className="flex items-center gap-1.5 text-sky-500 font-bold text-[9px] uppercase animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> กำลังทำรายการ (Preview)
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> 
+                {isRefreshing ? 'กำลังอัปเดตข้อมูล...' : 'กำลังทำรายการ (Preview)'}
               </div>
             )}
           </div>
-          <div className="bg-white rounded-[1.5rem] p-5 sm:p-7 border border-slate-200 shadow-sm relative overflow-hidden">
+          <div className="bg-white rounded-[2rem] p-6 sm:p-10 border border-slate-200 shadow-xl shadow-slate-200/50 relative overflow-hidden transition-all duration-500">
             {loading ? (
-              <div className="py-16 flex flex-col items-center justify-center gap-4 text-slate-300">
-                <div className="w-8 h-8 border-3 border-slate-100 border-t-sky-500 rounded-full animate-spin" />
-                <p className="text-xs font-bold uppercase tracking-widest">Loading Data...</p>
+              <div className="py-20 flex flex-col items-center justify-center gap-5 text-slate-300">
+                <div className="w-10 h-10 border-4 border-slate-100 border-t-[#0a4d68] rounded-full animate-spin" />
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-slate-400">Loading Ward Data...</p>
               </div>
             ) : (
-              <DashboardSummary record={displayRecord} />
+              <div className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`}>
+                <DashboardSummary record={displayRecord} />
+              </div>
+            )}
+            
+            {isRefreshing && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="px-5 py-2.5 bg-white/80 backdrop-blur-sm rounded-full border border-slate-200 shadow-2xl flex items-center gap-3">
+                  <div className="w-4 h-4 border-2 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Refreshing</span>
+                </div>
+              </div>
             )}
           </div>
         </section>
