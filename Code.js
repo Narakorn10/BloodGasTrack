@@ -53,6 +53,33 @@ function getColMap_(sheet) {
   };
 }
 
+// ─── Utility: Security & Data ──────────────────────────────────────
+
+/**
+ * Run this ONCE to hash all existing plain-text passwords in the Users sheet.
+ * Use the Apps Script Editor to select and run this function.
+ */
+function migratePasswordsToHash() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_SHEET);
+  if (!sh) return console.log('Users sheet not found');
+  
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const plain = String(data[i][1]).trim();
+    if (plain && plain.length < 64) { // SHA-256 is 64 chars
+      const hashed = hashPassword_(plain);
+      sh.getRange(i + 1, 2).setValue(hashed);
+      console.log('Hashed user:', data[i][0]);
+    }
+  }
+}
+
+function hashPassword_(p) {
+  if (!p) return '';
+  const signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(p));
+  return signature.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+}
+
 function parseAnyNum_(v) {
   if (v === null || v === undefined || v === '') return null; // Use null for empty
   let n = (typeof v === 'string') ? parseFloat(v.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim()) : Number(v);
@@ -62,6 +89,7 @@ function parseAnyNum_(v) {
 }
 
 function toObj_(r, col) {
+  if (!r || r.length === 0) return null;
   return {
     timestamp: r[col.ts] ? (r[col.ts] instanceof Date ? r[col.ts].toISOString() : String(r[col.ts])) : '',
     ward:      String(r[col.ward] || ''), 
@@ -93,8 +121,15 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
     const data = body.data || {};
-    let result;
+    
+    // Auth Check for sensitive actions
+    const authActions = ['saveRecord', 'getLogs', 'getLastRecord'];
+    if (authActions.includes(action)) {
+      const isAuthorized = checkAuth_(body.username, body.password);
+      if (!isAuthorized) return sendJson_({ success: false, message: 'Unauthorized' });
+    }
 
+    let result;
     if (action === 'login') result = login(body.username, body.password);
     else if (action === 'getLastRecord') result = getLastRecord(body.ward);
     else if (action === 'getLogs') result = getLogs(body.ward);
@@ -102,10 +137,20 @@ function doPost(e) {
     else if (action === 'getWards') result = getWards();
     else result = { success: false, message: 'Invalid Action' };
 
-    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+    return sendJson_(result);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+    return sendJson_({ success: false, message: err.toString() });
   }
+}
+
+function sendJson_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function checkAuth_(u, p) {
+  if (!u || !p) return false;
+  const res = login(u, p);
+  return res.success;
 }
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -113,10 +158,14 @@ function doPost(e) {
 function login(u, p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_SHEET) || initSheets().ush;
   const rows = sh.getDataRange().getValues();
-  const search = String(u || '').trim().toLowerCase();
+  const searchU = String(u || '').trim().toLowerCase();
+  const searchP = hashPassword_(p);
+  
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim().toLowerCase() === search) {
-      if (String(rows[i][1]) === String(p)) {
+    if (String(rows[i][0]).trim().toLowerCase() === searchU) {
+      const storedP = String(rows[i][1]);
+      // Support both hashed and plain (temporary transition)
+      if (storedP === searchP || storedP === String(p)) {
         return { success: true, user: { username: u, fullName: rows[i][2], role: rows[i][3], ward: rows[i][5] || '' } };
       }
     }
@@ -131,17 +180,25 @@ function getWards() {
 
 function getLastRecord(wardName) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RECORDS_SHEET) || initSheets().rsh;
-  const data = sh.getDataRange().getValues();
   const col = getColMap_(sh);
   const search = String(wardName || '').trim().toLowerCase();
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][col.ward]).trim().toLowerCase() === search) {
-      return { 
-        success: true, 
-        record: toObj_(data[i], col),
-        _debug_col: col,
-        _debug_raw: data[i].slice(0, 16)
-      };
+  
+  // Optimization: Use TextFinder to find the ward, then narrow search
+  const finder = sh.createTextFinder(wardName).matchCase(false).matchEntireCell(true);
+  const matches = finder.findAll();
+  
+  if (matches.length > 0) {
+    // Check from the last match upwards to find the most recent row for this ward
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const rowNum = matches[i].getRow();
+      const rowData = sh.getRange(rowNum, 1, 1, sh.getLastColumn()).getValues()[0];
+      if (String(rowData[col.ward]).trim().toLowerCase() === search) {
+        return { 
+          success: true, 
+          record: toObj_(rowData, col),
+          _debug_col: col
+        };
+      }
     }
   }
   return { success: true, record: null };
@@ -149,13 +206,22 @@ function getLastRecord(wardName) {
 
 function getLogs(wardName) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LOGS_SHEET) || initSheets().lsh;
-  const data = sh.getDataRange().getValues();
   const col = getColMap_(sh);
   const filter = wardName ? String(wardName).trim().toLowerCase() : null;
-  const logs = data.slice(1).reverse()
+  
+  // Optimization: Only read the last 50 rows for logs
+  const lastRow = sh.getLastRow();
+  const startRow = Math.max(2, lastRow - 50);
+  const numRows = lastRow - startRow + 1;
+  
+  if (numRows <= 0) return { success: true, logs: [] };
+  
+  const data = sh.getRange(startRow, 1, numRows, sh.getLastColumn()).getValues();
+  const logs = data.reverse()
     .filter(r => !filter || String(r[col.ward]).trim().toLowerCase() === filter)
     .slice(0, 20)
     .map(r => toObj_(r, col));
+    
   return { success: true, logs };
 }
 
@@ -188,15 +254,18 @@ function saveRecord(data) {
   }
 
   const wardSearch = String(data.ward || '').trim().toLowerCase();
-  const recValues = rsh.getDataRange().getValues();
-  let targetRow = -1;
-  for (let i = 1; i < recValues.length; i++) {
-    if (String(recValues[i][colR.ward]).trim().toLowerCase() === wardSearch) { targetRow = i + 1; break; }
-  }
+  
+  // Optimization: Use TextFinder to find targetRow in Records sheet
+  const finder = rsh.createTextFinder(data.ward).matchCase(false).matchEntireCell(true);
+  const match = finder.findNext();
+  let targetRow = match ? match.getRow() : -1;
 
   const rowR = prepareRow(colR);
-  if (targetRow > 0) rsh.getRange(targetRow, 1, 1, rowR.length).setValues([rowR]);
-  else rsh.appendRow(rowR);
+  if (targetRow > 1) {
+    rsh.getRange(targetRow, 1, 1, rowR.length).setValues([rowR]);
+  } else {
+    rsh.appendRow(rowR);
+  }
 
   lsh.appendRow(prepareRow(colL));
   return { success: true, message: 'บันทึกสำเร็จ' };
@@ -209,14 +278,24 @@ function initSheets() {
     let sh = ss.getSheetByName(n) || ss.insertSheet(n);
     if (sh.getLastRow() === 0) sh.appendRow(headers);
   });
-  return { rsh: ss.getSheetByName(RECORDS_SHEET), lsh: ss.getSheetByName(LOGS_SHEET), ush: ss.getSheetByName(USERS_SHEET), wsh: ss.getSheetByName(WARDS_SHEET) };
+  return { 
+    rsh: ss.getSheetByName(RECORDS_SHEET), 
+    lsh: ss.getSheetByName(LOGS_SHEET), 
+    ush: ss.getSheetByName(USERS_SHEET) || ss.insertSheet(USERS_SHEET), 
+    wsh: ss.getSheetByName(WARDS_SHEET) || ss.insertSheet(WARDS_SHEET) 
+  };
 }
 
 function isoDate_(v) {
   if (!v) return '';
   try {
     let d = (v instanceof Date) ? v : new Date(v);
-    if (isNaN(d.getTime())) return String(v);
+    if (isNaN(d.getTime())) {
+      // Try parsing common Thai formats or simple strings if Date fails
+      const s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+      return s;
+    }
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   } catch (e) { return String(v); }
 }

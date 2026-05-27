@@ -77,10 +77,10 @@ const SectionHeader = ({ icon, title, color, isReplacing, onToggleReplace }: Sec
       <button 
         type="button"
         onClick={onToggleReplace}
-        className={`flex items-center gap-2 px-5 py-3 rounded-full text-[11px] font-extrabold transition-all duration-150 border active:scale-95 touch-manipulation ${
+        className={`flex items-center gap-2 px-6 py-3.5 rounded-full text-[11px] font-extrabold transition-all duration-150 border active:scale-[0.97] touch-manipulation shadow-sm ${
           isReplacing 
-            ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-200' 
-            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 shadow-sm'
+            ? 'bg-rose-500 border-rose-400 text-white shadow-rose-200' 
+            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100'
         }`}
       >
         {isReplacing ? <RotateCw size={14} className="animate-spin-slow" /> : <PenLine size={14} />}
@@ -145,6 +145,9 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         qcLot: initialData.qcLot || "",
         qcExpiry: initialData.qcExpiry || "",
       });
+      setIsReplacingR(false);
+      setIsReplacingW(false);
+      setIsReplacingQ(false);
     } else {
       reset({
         reagent: "",
@@ -161,29 +164,38 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         condition: false,
         waste: "ไม่ได้ทิ้ง Waste",
       });
+      // Force replace mode if no initial data so user can type
+      setIsReplacingR(true);
+      setIsReplacingW(true);
+      setIsReplacingQ(true);
     }
-    setIsReplacingR(false);
-    setIsReplacingW(false);
-    setIsReplacingQ(false);
   }, [initialData, reset]);
 
   // Watch all values and send to parent for Live Preview with Debounce
   const watchedValues = watch();
+  const lastUpdateRef = useRef<string>("");
+
   useEffect(() => {
     if (!onValuesChange) return;
-    const hasData = watchedValues.reagent || watchedValues.wash || watchedValues.qc;
-    if (!hasData) {
-      onValuesChange({});
-      return;
-    }
+    
+    // Create a stable representation of the data to check for changes
+    const currentData = {
+      ...watchedValues,
+      reagent: parseFloat(watchedValues.reagent) || 0,
+      wash: parseFloat(watchedValues.wash) || 0,
+      qc: parseFloat(watchedValues.qc) || 0,
+    };
+    
+    const dataString = JSON.stringify(currentData);
+    
+    // If nothing changed, don't trigger update
+    if (dataString === lastUpdateRef.current) return;
+
     const timer = setTimeout(() => {
-      onValuesChange({
-        ...watchedValues,
-        reagent: parseFloat(watchedValues.reagent) || 0,
-        wash: parseFloat(watchedValues.wash) || 0,
-        qc: parseFloat(watchedValues.qc) || 0,
-      });
+      lastUpdateRef.current = dataString;
+      onValuesChange(currentData);
     }, 300);
+    
     return () => clearTimeout(timer);
   }, [watchedValues, onValuesChange]);
 
@@ -243,11 +255,12 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
               <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.reagent ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-50'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.reagent ? 'border-red-400 bg-red-50' : 'border-slate-100 bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-50'}`}
                   placeholder="0" {...register("reagent")} 
                 />
                 <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
+              {errors.reagent && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.reagent.message}</p>}
             </div>
             <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingR ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
@@ -255,19 +268,21 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
                 <input 
                   type="text" 
                   readOnly={!isReplacingR}
-                  placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  placeholder="กรอก Lot Number"
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("reagentLot")} 
                 />
+                {errors.reagentLot && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.reagentLot.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingR}
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingR ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("reagentExpiry")} 
                 />
+                {errors.reagentExpiry && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.reagentExpiry.message}</p>}
               </div>
             </div>
           </div>
@@ -285,11 +300,12 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
               <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.wash ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.wash ? 'border-red-400 bg-red-50' : 'border-slate-100 bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50'}`}
                   placeholder="0" {...register("wash")} 
                 />
                 <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
+              {errors.wash && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.wash.message}</p>}
             </div>
             <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingW ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
@@ -297,19 +313,21 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
                 <input 
                   type="text" 
                   readOnly={!isReplacingW}
-                  placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  placeholder="กรอก Lot Number"
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("washLot")} 
                 />
+                {errors.washLot && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.washLot.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingW}
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingW ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("washExpiry")} 
                 />
+                {errors.washExpiry && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.washExpiry.message}</p>}
               </div>
             </div>
           </div>
@@ -327,11 +345,12 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
               <div className="relative group">
                 <input 
                   type="number" min="0" max="100" 
-                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.qc ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50'}`}
+                  className={`w-full px-5 py-4 rounded-2xl border-2 transition-all outline-none font-mono text-lg ${errors.qc ? 'border-red-400 bg-red-50' : 'border-slate-100 bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50'}`}
                   placeholder="0" {...register("qc")} 
                 />
                 <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
+              {errors.qc && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.qc.message}</p>}
             </div>
             <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${isReplacingQ ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/50 border-slate-50'}`}>
               <div className="space-y-1.5">
@@ -339,19 +358,21 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
                 <input 
                   type="text" 
                   readOnly={!isReplacingQ}
-                  placeholder="ยังไม่มีข้อมูล Lot"
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  placeholder="กรอก Lot Number"
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("qcLot")} 
                 />
+                {errors.qcLot && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.qcLot.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight ml-1">วันหมดอายุ</label>
                 <input 
                   type="date" 
                   readOnly={!isReplacingQ}
-                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700' : 'bg-transparent border-transparent text-slate-400'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-bold ${isReplacingQ ? 'bg-white border-rose-200 focus:border-rose-400 text-slate-700 shadow-inner' : 'bg-transparent border-transparent text-slate-400'}`}
                   {...register("qcExpiry")} 
                 />
+                {errors.qcExpiry && <p className="text-[9px] text-red-500 font-bold ml-1">{errors.qcExpiry.message}</p>}
               </div>
             </div>
           </div>
@@ -365,33 +386,33 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
             <button 
               type="button"
               onClick={() => setValue("deprotein", !watch("deprotein"), { shouldDirty: true })}
-              className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-95 touch-manipulation ${watch("deprotein") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+              className={`group cursor-pointer p-6 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-[0.97] touch-manipulation ${watch("deprotein") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
             >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${watch("deprotein") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
-                <CheckCircle2 size={16} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${watch("deprotein") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                <CheckCircle2 size={18} />
               </div>
-              <div className="text-sm font-extrabold text-slate-700 uppercase tracking-tight">Deprotein</div>
+              <div className="text-xs font-extrabold text-slate-700 uppercase tracking-tight">Deprotein</div>
             </button>
 
             <button 
               type="button"
               onClick={() => setValue("condition", !watch("condition"), { shouldDirty: true })}
-              className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-95 touch-manipulation ${watch("condition") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${watch("condition") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
-                <CheckCircle2 size={16} />
+              className={`group cursor-pointer p-6 rounded-[1.5rem] border-2 transition-all flex items-center gap-3 active:scale-[0.97] touch-manipulation ${watch("condition") ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${watch("condition") ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                <CheckCircle2 size={18} />
               </div>
-              <div className="text-sm font-extrabold text-slate-700 uppercase tracking-tight">Condition</div>
+              <div className="text-xs font-extrabold text-slate-700 uppercase tracking-tight">Condition</div>
             </button>
           </div>
 
           <button 
             type="button"
             onClick={() => setValue("waste", watch("waste") === "ทิ้ง Waste" ? "ไม่ได้ทิ้ง Waste" : "ทิ้ง Waste", { shouldDirty: true })}
-            className={`group cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all flex items-center justify-between active:scale-95 touch-manipulation relative overflow-hidden ${watch("waste") === "ทิ้ง Waste" ? 'border-rose-400 bg-rose-50 shadow-md shadow-rose-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+            className={`group cursor-pointer p-6 rounded-[1.5rem] border-2 transition-all flex items-center justify-between active:scale-[0.97] touch-manipulation relative overflow-hidden ${watch("waste") === "ทิ้ง Waste" ? 'border-rose-400 bg-rose-50 shadow-md shadow-rose-100' : 'border-slate-100 bg-white hover:border-slate-200'}`}
           >
             <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${watch("waste") === "ทิ้ง Waste" ? 'bg-rose-500 text-white rotate-12' : 'bg-slate-100 text-slate-400'}`}>
-                <Trash2 size={22} />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${watch("waste") === "ทิ้ง Waste" ? 'bg-rose-500 text-white rotate-12' : 'bg-slate-100 text-slate-400'}`}>
+                <Trash2 size={24} />
               </div>
               <div className="text-left">
                 <div className={`text-sm font-extrabold transition-colors ${watch("waste") === "ทิ้ง Waste" ? 'text-rose-700' : 'text-slate-700'}`}>
@@ -414,7 +435,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
         <SectionHeader icon={<MessageCircle size={16} />} title="Handover Note" color="text-amber-500 bg-amber-500" />
         <textarea 
           placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)..." 
-          className="w-full px-5 py-5 rounded-[1.5rem] border-2 border-slate-100 bg-white focus:border-amber-400 focus:shadow-xl focus:shadow-amber-100 outline-none min-h-[120px] text-base leading-relaxed transition-all"
+          className="w-full px-6 py-6 rounded-[1.5rem] border-2 border-slate-100 bg-white focus:border-amber-400 focus:shadow-xl focus:shadow-amber-100 outline-none min-h-[140px] text-base leading-relaxed transition-all shadow-sm"
           {...register("comment")}
         />
       </div>
@@ -422,7 +443,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
       <button 
         type="submit" 
         disabled={isSubmitting}
-        className="w-full bg-[#0a4d68] active:bg-[#088395] text-white py-6 rounded-[2rem] font-extrabold text-xl shadow-xl shadow-sky-900/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] touch-manipulation group relative overflow-hidden"
+        className="w-full bg-[#0a4d68] active:bg-[#088395] text-white py-6 rounded-[2.5rem] font-extrabold text-xl shadow-xl shadow-sky-900/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.99] touch-manipulation group relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
         {isSubmitting ? (

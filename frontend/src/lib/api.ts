@@ -1,45 +1,9 @@
 import axios from 'axios';
-import { BloodGasRecord, User } from './types';
+import { MOCK_DATA } from './mockData';
 
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL 
   ? `https://script.google.com/macros/s/${process.env.NEXT_PUBLIC_GAS_URL}/exec`
   : null;
-
-// Mock Data for local testing (matches v5.5 Backend Structure)
-const MOCK_DATA: {
-  records: Record<string, BloodGasRecord>;
-  logs: BloodGasRecord[];
-  saveRecord: { success: boolean; message: string };
-  login: { success: boolean; user: User };
-  getWards: { success: boolean; wards: string[] };
-} = {
-  records: {
-    "อายุกรรมชาย 2": {
-      timestamp: new Date().toISOString(), ward: "อายุกรรมชาย 2", worker: "นรากร (Mock)",
-      reagent: 75, reagentExpiry: "2026-12-31", reagentLot: "LOT-R-MED",
-      wash: 42, washExpiry: "2026-08-15", washLot: "LOT-W-MED",
-      qc: 90, qcExpiry: "2026-11-20", qcLot: "LOT-Q-MED",
-      comment: "ข้อมูลจำลองตึกอายุกรรม", deprotein: true, condition: true, waste: "ไม่ได้ทิ้ง Waste"
-    },
-    "NICU": {
-      timestamp: new Date().toISOString(), ward: "NICU", worker: "พยาบาล (Mock)",
-      reagent: 15, reagentExpiry: "2026-06-01", reagentLot: "LOT-R-NICU",
-      wash: 88, washExpiry: "2026-10-10", washLot: "LOT-W-NICU",
-      qc: 45, qcExpiry: "2026-07-20", qcLot: "LOT-Q-NICU",
-      comment: "ข้อมูลจำลองตึกเด็กแรกเกิด", deprotein: false, condition: true, waste: "ทิ้ง Waste"
-    }
-  },
-  logs: [],
-  saveRecord: { success: true, message: "บันทึกสำเร็จ (Mock Mode)" },
-  login: {
-    success: true,
-    user: { username: "admin", fullName: "ผู้ดูแลระบบ (Mock)", role: "admin", ward: "" }
-  },
-  getWards: {
-    success: true,
-    wards: ["อายุกรรมชาย 2", "NICU", "ICU(MED)"]
-  }
-};
 
 interface ApiPayload {
   ward?: string;
@@ -51,7 +15,20 @@ interface ApiPayload {
 
 export const api = {
   async post(action: string, payload: ApiPayload = {}) {
-    // 1. If GAS_URL is missing, use Mock Mode
+    // 1. Get credentials from localStorage if available
+    let username = payload.username;
+    let password = payload.password;
+
+    if (!username || !password) {
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
+      const savedCred = typeof window !== 'undefined' ? localStorage.getItem("cred") : null;
+      if (savedUser && savedCred) {
+        username = JSON.parse(savedUser).username;
+        password = savedCred; // Password stored separately for security/clarity
+      }
+    }
+
+    // 2. If GAS_URL is missing, use Mock Mode
     if (!GAS_URL) {
       console.warn(`[Mock API] Action: ${action}`, payload);
       
@@ -61,8 +38,8 @@ export const api = {
           timestamp: new Date().toISOString(), 
           ward: payload.data.ward, 
           worker: payload.data.worker 
-        };
-        MOCK_DATA.records[payload.data.ward] = newRec;
+        } as any;
+        MOCK_DATA.records[payload.data.ward as string] = newRec;
         MOCK_DATA.logs.unshift(newRec);
         return MOCK_DATA.saveRecord;
       }
@@ -75,19 +52,20 @@ export const api = {
       }
       if (action === 'getLogs') {
         const ward = payload.ward;
-        const filteredLogs = ward ? MOCK_DATA.logs.filter((l: BloodGasRecord) => l.ward === ward) : MOCK_DATA.logs;
+        const filteredLogs = ward ? MOCK_DATA.logs.filter((l: any) => l.ward === ward) : MOCK_DATA.logs;
         return { success: true, logs: filteredLogs.slice(0, 20) };
       }
       
       return { success: false, message: "No Mock Data for: " + action };
     }
 
-    // 2. Real API Call
+    // 3. Real API Call
     try {
-      // Standardized request structure for v5.5 Backend
       const requestBody = {
-        action: action,
-        ...payload // Contains ward, username, password, or data object
+        action,
+        username,
+        password,
+        ...payload
       };
 
       const response = await axios.post(GAS_URL, JSON.stringify(requestBody), {

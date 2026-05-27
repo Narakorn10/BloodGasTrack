@@ -15,7 +15,8 @@ frontend/node_modules/
 Thumbs.db
 
 # Clasp / Apps Script
-.clasp.json
+# .clasp.json is needed for CI/CD to identify the scriptId
+.clasprc.json
 
 # Environment variables
 frontend/.env.local

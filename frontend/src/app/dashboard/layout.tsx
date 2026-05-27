@@ -34,6 +34,7 @@ export default function DashboardLayout({
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("cred");
     router.push("/login");
   };
 
