@@ -8,15 +8,15 @@ import { useState, useEffect, useRef } from "react";
 import { Droplets, CheckCircle2, Trash2, Send, MessageCircle, PenLine, RotateCw } from "lucide-react";
 
 const formSchema = z.object({
-  reagent: z.string().min(1, "กรุณากรอกปริมาณ"),
-  reagentExpiry: z.string().min(1, "กรุณาเลือกวันหมดอายุ"),
-  reagentLot: z.string().min(1, "กรุณากรอก Lot"),
-  wash: z.string().min(1, "กรุณากรอกปริมาณ"),
-  washExpiry: z.string().min(1, "กรุณาเลือกวันหมดอายุ"),
-  washLot: z.string().min(1, "กรุณากรอก Lot"),
-  qc: z.string().min(1, "กรุณากรอกปริมาณ"),
-  qcExpiry: z.string().min(1, "กรุณาเลือกวันหมดอายุ"),
-  qcLot: z.string().min(1, "กรุณากรอก Lot"),
+  reagent: z.string().optional().or(z.literal("")),
+  reagentExpiry: z.string().optional().or(z.literal("")),
+  reagentLot: z.string().optional().or(z.literal("")),
+  wash: z.string().optional().or(z.literal("")),
+  washExpiry: z.string().optional().or(z.literal("")),
+  washLot: z.string().optional().or(z.literal("")),
+  qc: z.string().optional().or(z.literal("")),
+  qcExpiry: z.string().optional().or(z.literal("")),
+  qcLot: z.string().optional().or(z.literal("")),
   comment: z.string().optional().or(z.literal("")),
   deprotein: z.boolean(),
   condition: z.boolean(),
@@ -179,12 +179,16 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     if (!onValuesChange) return;
     
     // Create a stable representation of the data to check for changes
-    const currentData = {
-      ...watchedValues,
-      reagent: parseFloat(watchedValues.reagent) || 0,
-      wash: parseFloat(watchedValues.wash) || 0,
-      qc: parseFloat(watchedValues.qc) || 0,
-    };
+    // Only include numeric values if they are NOT empty strings to avoid overwriting with 0/NaN
+    const currentData: any = { ...watchedValues };
+    if (watchedValues.reagent) currentData.reagent = parseFloat(watchedValues.reagent);
+    else delete currentData.reagent;
+    
+    if (watchedValues.wash) currentData.wash = parseFloat(watchedValues.wash);
+    else delete currentData.wash;
+    
+    if (watchedValues.qc) currentData.qc = parseFloat(watchedValues.qc);
+    else delete currentData.qc;
     
     const dataString = JSON.stringify(currentData);
     
@@ -207,16 +211,18 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
-      const res = await api.post("saveRecord", {
-        data: {
-          ...data,
-          ward: ward,
-          worker: user?.fullName || user?.username,
-          reagent: parseFloat(data.reagent),
-          wash: parseFloat(data.wash),
-          qc: parseFloat(data.qc),
-        },
-      });
+      const payload: any = {
+        ...data,
+        ward: ward,
+        worker: user?.fullName || user?.username,
+      };
+
+      // Convert to numbers only if they have values, otherwise let backend merge
+      if (data.reagent) payload.reagent = parseFloat(data.reagent);
+      if (data.wash) payload.wash = parseFloat(data.wash);
+      if (data.qc) payload.qc = parseFloat(data.qc);
+
+      const res = await api.post("saveRecord", { data: payload });
 
       if (res.success) {
         showToast("✅ บันทึกสำเร็จ");
