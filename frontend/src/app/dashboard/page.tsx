@@ -68,9 +68,10 @@ export default function DashboardPage() {
       const loggedUser = JSON.parse(savedUserStr);
       setUser(loggedUser);
 
+      let availableWards: string[] = [];
       try {
         const wardRes = await api.post("getWards");
-        const availableWards: string[] = wardRes.wards || [];
+        availableWards = wardRes.wards || [];
         
         if (loggedUser.role !== 'admin' && loggedUser.ward) {
           // User: Restricted to their ward

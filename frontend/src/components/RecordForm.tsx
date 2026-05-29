@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { api } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Droplets, CheckCircle2, Trash2, Send, MessageCircle, PenLine, RotateCw } from "lucide-react";
 
 const formSchema = z.object({
