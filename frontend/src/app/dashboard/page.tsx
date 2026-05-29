@@ -8,9 +8,11 @@ import { DashboardSummary } from "@/components/DashboardSummary";
 import { LogsList } from "@/components/LogsList";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { BloodGasRecord, User } from "@/lib/types";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [ward, setWard] = useState("");
   const [wards, setWards] = useState<string[]>([]);
   const [record, setRecord] = useState<BloodGasRecord | null>(null);

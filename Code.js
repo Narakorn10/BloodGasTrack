@@ -183,19 +183,29 @@ function getLastRecord(wardName) {
   const col = getColMap_(sh);
   const search = String(wardName || '').trim().toLowerCase();
   
-  // Optimization: Use TextFinder to find the ward, then narrow search
+  // To get the "Latest Status", we need to look at the Logs to find the most recent 
+  // non-empty/non-zero values for each specific reagent if the current record is partial.
+  // However, the Records sheet is supposed to hold the "Current Status" for each ward.
+  // Let's improve the logic to ensure we return the most complete picture.
+  
   const finder = sh.createTextFinder(wardName).matchCase(false).matchEntireCell(true);
   const matches = finder.findAll();
   
   if (matches.length > 0) {
-    // Check from the last match upwards to find the most recent row for this ward
     for (let i = matches.length - 1; i >= 0; i--) {
       const rowNum = matches[i].getRow();
       const rowData = sh.getRange(rowNum, 1, 1, sh.getLastColumn()).getValues()[0];
       if (String(rowData[col.ward]).trim().toLowerCase() === search) {
+        const record = toObj_(rowData, col);
+        
+        // If the record in 'Records' sheet is missing some data (e.g., Lot or Expiry),
+        // we could potentially look back into Logs to find them, but usually 
+        // the 'Records' sheet should be the source of truth for "current" values.
+        // We ensure parseAnyNum_ treats empty as null to allow frontend to handle it.
+        
         return { 
           success: true, 
-          record: toObj_(rowData, col),
+          record: record,
           _debug_col: col
         };
       }
@@ -255,19 +265,62 @@ function saveRecord(data) {
 
   const wardSearch = String(data.ward || '').trim().toLowerCase();
   
-  // Optimization: Use TextFinder to find targetRow in Records sheet
+  // Optimization: Find existing record to merge data
   const finder = rsh.createTextFinder(data.ward).matchCase(false).matchEntireCell(true);
   const match = finder.findNext();
   let targetRow = match ? match.getRow() : -1;
+  let existingData = {};
 
-  const rowR = prepareRow(colR);
+  if (targetRow > 1) {
+    const rowValues = rsh.getRange(targetRow, 1, 1, rsh.getLastColumn()).getValues()[0];
+    existingData = toObj_(rowValues, colR);
+  }
+
+  // Merge: Use new data if provided, otherwise keep existing
+  const merged = {
+    ...existingData,
+    ...data,
+    reagent: parseAnyNum_(data.reagent) ?? existingData.reagent,
+    wash:    parseAnyNum_(data.wash)    ?? existingData.wash,
+    qc:      parseAnyNum_(data.qc)      ?? existingData.qc,
+    // Only update expiry/lot if the corresponding pct is updated or if explicitly provided
+    reagentExpiry: data.reagentExpiry || existingData.reagentExpiry,
+    reagentLot:    data.reagentLot    || existingData.reagentLot,
+    washExpiry:    data.washExpiry    || existingData.washExpiry,
+    washLot:       data.washLot       || existingData.washLot,
+    qcExpiry:      data.qcExpiry      || existingData.qcExpiry,
+    qcLot:         data.qcLot         || existingData.qcLot
+  };
+
+  function prepareRow(col, recordData) {
+    let row = new Array(Math.max(...Object.values(col)) + 1).fill('');
+    if (col.ts >= 0) row[col.ts] = new Date();
+    if (col.ward >= 0) row[col.ward] = recordData.ward || '';
+    if (col.worker >= 0) row[col.worker] = recordData.worker || '';
+    if (col.r_pct >= 0) row[col.r_pct] = recordData.reagent ?? '';
+    if (col.r_exp >= 0) row[col.r_exp] = recordData.reagentExpiry || '';
+    if (col.r_lot >= 0) row[col.r_lot] = recordData.reagentLot || '';
+    if (col.w_pct >= 0) row[col.w_pct] = recordData.wash ?? '';
+    if (col.w_exp >= 0) row[col.w_exp] = recordData.washExpiry || '';
+    if (col.w_lot >= 0) row[col.w_lot] = recordData.washLot || '';
+    if (col.q_pct >= 0) row[col.q_pct] = recordData.qc ?? '';
+    if (col.q_exp >= 0) row[col.q_exp] = recordData.qcExpiry || '';
+    if (col.q_lot >= 0) row[col.q_lot] = recordData.qcLot || '';
+    if (col.cmt >= 0) row[col.cmt] = recordData.comment || '';
+    if (col.dp >= 0) row[col.dp] = recordData.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
+    if (col.cd >= 0) row[col.cd] = recordData.condition ? 'ทำ' : 'ไม่ได้ทำ';
+    if (col.waste >= 0) row[col.waste] = recordData.waste || 'ไม่ได้ทิ้ง Waste';
+    return row;
+  }
+
+  const rowR = prepareRow(colR, merged);
   if (targetRow > 1) {
     rsh.getRange(targetRow, 1, 1, rowR.length).setValues([rowR]);
   } else {
     rsh.appendRow(rowR);
   }
 
-  lsh.appendRow(prepareRow(colL));
+  lsh.appendRow(prepareRow(colL, merged));
   return { success: true, message: 'บันทึกสำเร็จ' };
 }
 
