@@ -21,8 +21,11 @@ function LoginForm() {
     try {
       const res = await api.post("login", { username: u, password: p });
       if (res.success) {
-        localStorage.setItem("user", JSON.stringify(res.user));
+        localStorage.setItem("user", JSON.stringify({ ...res.user, sessionToken: res.sessionToken || "" }));
         localStorage.setItem("cred", p); // Store for subsequent requests auth
+        if (res.sessionToken) {
+          localStorage.setItem("sessionToken", res.sessionToken);
+        }
         router.push("/dashboard");
       } else {
         setError(res.message || "Username หรือ Password ไม่ถูกต้อง");

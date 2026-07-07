@@ -5,12 +5,15 @@ export interface BloodGasRecord {
   reagent: number;
   reagentExpiry: string;
   reagentLot: string;
+  reagentPackChanged?: boolean;
   wash: number;
   washExpiry: string;
   washLot: string;
+  washPackChanged?: boolean;
   qc: number;
   qcExpiry: string;
   qcLot: string;
+  qcPackChanged?: boolean;
   comment: string;
   deprotein: boolean;
   condition: boolean;
@@ -22,4 +25,5 @@ export interface User {
   fullName: string;
   role: string;
   ward?: string;
+  sessionToken?: string;
 }

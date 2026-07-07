@@ -8,11 +8,9 @@ import { DashboardSummary } from "@/components/DashboardSummary";
 import { LogsList } from "@/components/LogsList";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, PenLine, History, AlertCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { BloodGasRecord, User } from "@/lib/types";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [ward, setWard] = useState("");
   const [wards, setWards] = useState<string[]>([]);
   const [record, setRecord] = useState<BloodGasRecord | null>(null);
@@ -74,22 +72,25 @@ export default function DashboardPage() {
       try {
         const wardRes = await api.post("getWards");
         availableWards = wardRes.wards || [];
-        
+
         if (loggedUser.role !== 'admin' && loggedUser.ward) {
-          // User: Restricted to their ward
           setWards([loggedUser.ward]);
           setWard(loggedUser.ward);
         } else {
-          // Admin: Can see everything
           setWards(availableWards);
           setWard(availableWards[0] || "");
         }
       } catch (err) {
         console.error("Init Error:", err);
+        const fallbackWards = loggedUser.ward ? [loggedUser.ward] : [];
+        setWards(fallbackWards);
+        setWard(fallbackWards[0] || "");
+        showToast("โหลดรายชื่อหอผู้ป่วยไม่สำเร็จ กำลังใช้ข้อมูลล่าสุดที่มี", true);
       } finally {
-        // Only stop loading if we have a ward to fetch, 
-        // otherwise fetchData won't be triggered to stop it.
-        const firstWard = loggedUser.role !== 'admin' ? loggedUser.ward : availableWards[0];
+        const firstWard =
+          loggedUser.role !== 'admin'
+            ? loggedUser.ward
+            : availableWards[0] || loggedUser.ward || "";
         if (!firstWard) setLoading(false);
       }
     };
@@ -127,6 +128,24 @@ export default function DashboardPage() {
       )}
 
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+        {wards.length > 0 && (
+          <div className="mb-4">
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              หอผู้ป่วย
+            </label>
+            <select
+              value={ward}
+              onChange={(e) => setWard(e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm outline-none transition focus:border-sky-400"
+            >
+              {wards.map((wardName) => (
+                <option key={wardName} value={wardName}>
+                  {wardName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <WardTabs wards={wards} activeWard={ward} onSelect={setWard} />
       </motion.div>
 
