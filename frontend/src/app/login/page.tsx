@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { Eye, EyeOff, Activity, Loader2, User, Lock, ArrowRight, ShieldCheck } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 function LoginForm() {
@@ -13,7 +13,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const performLogin = useCallback(async (u: string, p: string) => {
     setLoading(true);
@@ -38,24 +37,12 @@ function LoginForm() {
   }, [router]);
 
   useEffect(() => {
-    // 1. Check if already logged in
+    // Respect an active local session, but do not auto-login from URL params.
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
       router.push("/dashboard");
-      return;
     }
-
-    // 2. Auto-login via URL parameters (e.g., ?u=admin&p=1234)
-    const u = searchParams.get("u");
-    const p = searchParams.get("p");
-    if (u && p) {
-      // Defer execution to avoid cascading render error during initial mount
-      const timer = setTimeout(() => {
-        performLogin(u, p);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [router, searchParams, performLogin]);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,15 +182,7 @@ export default function LoginPage() {
           <p className="text-slate-500 font-bold uppercase tracking-[0.25em] text-[11px] opacity-80">Clinical Laboratory Portal</p>
         </div>
 
-        {/* Login Card with Suspense for useSearchParams */}
-        <Suspense fallback={
-          <div className="bg-white/70 backdrop-blur-2xl rounded-[3rem] p-12 border border-white flex flex-col items-center justify-center gap-4 h-[400px]">
-            <Loader2 className="animate-spin text-sky-500" size={40} />
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Checking URL...</p>
-          </div>
-        }>
-          <LoginForm />
-        </Suspense>
+        <LoginForm />
 
         {/* Footer Info */}
         <motion.div 
