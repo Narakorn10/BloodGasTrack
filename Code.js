@@ -1,72 +1,116 @@
 // =====================================================================
-//  Blood Gas Reagent Tracker  —  Code.gs  (v5.8 - DIAGNOSTIC)
-//  Fix: Differentiate between 0 and null, and add column diagnostics
+// Blood Gas Reagent Tracker - Code.gs
 // =====================================================================
 
 const RECORDS_SHEET = 'Records';
-const LOGS_SHEET    = 'Logs';
-const USERS_SHEET   = 'Users';
-const WARDS_SHEET   = 'Wards';
+const LOGS_SHEET = 'Logs';
+const USERS_SHEET = 'Users';
+const WARDS_SHEET = 'Wards';
 
 const USER_HEADERS = ['Username', 'Password', 'FullName', 'Role', 'Active', 'Ward'];
+const SESSION_PREFIX = 'bgtracker_session_';
+const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const DEFAULT_WASTE = 'ไม่ได้ทิ้ง Waste';
+const DONE_TH = 'ทำ';
+const NOT_DONE_TH = 'ไม่ได้ทำ';
+const WASTE_YES_TH = 'ทิ้ง Waste';
 
-// ─── Utility: Advanced Dynamic Column Mapping ──────────────────────
+function getColMap_(sh) {
+  const fallback = {
+    ts: 0,
+    ward: 1,
+    worker: 2,
+    r_pct: 3,
+    r_exp: 4,
+    w_pct: 5,
+    w_exp: 6,
+    q_pct: 7,
+    q_exp: 8,
+    cmt: 9,
+    dp: 10,
+    cd: 11,
+    waste: 12,
+    r_lot: 13,
+    w_lot: 14,
+    q_lot: 15,
+  };
+  if (!sh || sh.getLastRow() < 1) return fallback;
 
-function getColMap_(sheet) {
-  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
-  const map = {};
-  
-  headers.forEach((h, i) => {
-    const raw = String(h || '').trim();
-    if (!raw) return;
-    map[raw.toLowerCase()] = i;
-    const clean = raw.replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase();
-    if (clean && map[clean] === undefined) map[clean] = i;
-  });
-  
-  const getIdx = (candidates, defaultIdx) => {
-    for (const c of candidates) {
-      const cleanC = c.replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase();
-      if (map[c.toLowerCase()] !== undefined) return map[c.toLowerCase()];
-      if (map[cleanC] !== undefined) return map[cleanC];
-    }
-    return defaultIdx;
+  const headers = sh
+    .getRange(1, 1, 1, sh.getLastColumn())
+    .getValues()[0]
+    .map(v => String(v).trim());
+  const idx = name => headers.indexOf(name);
+  const mapped = {
+    ts: idx('Timestamp'),
+    ward: idx('Ward'),
+    worker: idx('Worker'),
+    r_pct: idx('Reagent (%)'),
+    r_exp: idx('Reagent Expiry'),
+    w_pct: idx('Wash (%)'),
+    w_exp: idx('Wash Expiry'),
+    q_pct: idx('QC (%)'),
+    q_exp: idx('QC Expiry'),
+    cmt: idx('Comment'),
+    dp: idx('Deprotein'),
+    cd: idx('Condition'),
+    waste: idx('Waste'),
+    r_lot: idx('Reagent Lot'),
+    w_lot: idx('Wash Lot'),
+    q_lot: idx('QC Lot'),
   };
 
+  return Object.keys(fallback).reduce((acc, key) => {
+    acc[key] = mapped[key] >= 0 ? mapped[key] : fallback[key];
+    return acc;
+  }, {});
+}
+
+function createSession_(user) {
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put(SESSION_PREFIX + token, JSON.stringify(user), SESSION_TTL_SECONDS);
+  return token;
+}
+
+function getSessionUser_(sessionToken) {
+  if (!sessionToken) return null;
+  const raw = CacheService.getScriptCache().get(SESSION_PREFIX + sessionToken);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+function requireSession_(sessionToken) {
+  const user = getSessionUser_(sessionToken);
+  if (!user) throw new Error('Unauthorized');
+  return user;
+}
+
+function getWardDataBatch(wardName, sessionToken) {
+  requireSession_(sessionToken);
+  const lastRecordResult = getLastRecord_(wardName);
+  const logsResult = getLogs_(wardName);
+  const wardsResult = getWards_();
+
   return {
-    ts:     getIdx(['timestamp', 'เวลา'], 0),
-    ward:   getIdx(['ward', 'วอร์ด', 'ตึก'], 1),
-    worker: getIdx(['worker', 'ผู้บันทึก', 'ชื่อ'], 2),
-    r_pct:  getIdx(['reagent%', 'reagentpct', 'reagent', 'น้ำยา'], 3),
-    r_exp:  getIdx(['reagentexpiry', 'reagentexp', 'วันหมดอายุน้ำยา'], 4),
-    r_lot:  getIdx(['reagentlot', 'lotreagent', 'ล็อตน้ำยา'], 13),
-    w_pct:  getIdx(['wash%', 'washpct', 'wash', 'น้ำยาล้าง'], 5),
-    w_exp:  getIdx(['washexpiry', 'washexp', 'วันหมดอายุน้ำยาล้าง'], 6),
-    w_lot:  getIdx(['washlot', 'lotwash', 'ล็อตน้ำยาล้าง'], 14),
-    q_pct:  getIdx(['qc%', 'qcpct', 'qc', 'คิวซี'], 7),
-    q_exp:  getIdx(['qcexpiry', 'qcexp', 'วันหมดอายุคิวซี'], 8),
-    q_lot:  getIdx(['qclot', 'lotqc', 'ล็อตคิวซี'], 15),
-    cmt:    getIdx(['comment', 'หมายเหตุ'], 9),
-    dp:     getIdx(['deprotein', 'ล้างโปรตีน'], 10),
-    cd:     getIdx(['condition', 'ปรับสภาพ'], 11),
-    waste:  getIdx(['waste', 'ของเสีย'], 12)
+    success: true,
+    record: lastRecordResult.record,
+    logs: logsResult.logs,
+    wards: wardsResult.wards,
   };
 }
 
-// ─── Utility: Security & Data ──────────────────────────────────────
-
-/**
- * Run this ONCE to hash all existing plain-text passwords in the Users sheet.
- * Use the Apps Script Editor to select and run this function.
- */
 function migratePasswordsToHash() {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_SHEET);
   if (!sh) return console.log('Users sheet not found');
-  
+
   const data = sh.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     const plain = String(data[i][1]).trim();
-    if (plain && plain.length < 64) { // SHA-256 is 64 chars
+    if (plain && plain.length < 64) {
       const hashed = hashPassword_(plain);
       sh.getRange(i + 1, 2).setValue(hashed);
       console.log('Hashed user:', data[i][0]);
@@ -77,43 +121,45 @@ function migratePasswordsToHash() {
 function hashPassword_(p) {
   if (!p) return '';
   const signature = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(p));
-  return signature.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+  return signature.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
 }
 
 function parseAnyNum_(v) {
-  if (v === null || v === undefined || v === '') return null; // Use null for empty
-  let n = (typeof v === 'string') ? parseFloat(v.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim()) : Number(v);
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'string'
+    ? parseFloat(v.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim())
+    : Number(v);
   if (isNaN(n)) return null;
   if (n > 0 && n <= 1) return Math.round(n * 100);
   return n;
 }
 
-function toObj_(r, col) {
-  if (!r || r.length === 0) return null;
+function toObj_(row, col) {
+  if (!row || row.length === 0) return null;
   return {
-    timestamp: r[col.ts] ? (r[col.ts] instanceof Date ? r[col.ts].toISOString() : String(r[col.ts])) : '',
-    ward:      String(r[col.ward] || ''), 
-    worker:    String(r[col.worker] || ''),
-    reagent:   parseAnyNum_(r[col.r_pct]), 
-    reagentExpiry: isoDate_(r[col.r_exp]), 
-    reagentLot:    String(r[col.r_lot] || ''),
-    wash:      parseAnyNum_(r[col.w_pct]), 
-    washExpiry:    isoDate_(r[col.w_exp]), 
-    washLot:       String(r[col.w_lot] || ''),
-    qc:        parseAnyNum_(r[col.q_pct]), 
-    qcExpiry:      isoDate_(r[col.q_exp]), 
-    qcLot:         String(r[col.q_lot] || ''),
-    comment:   String(r[col.cmt] || ''),
-    deprotein: String(r[col.dp]) === 'ทำ' || String(r[col.dp]).toUpperCase() === 'TRUE',
-    condition: String(r[col.cd]) === 'ทำ' || String(r[col.cd]).toUpperCase() === 'TRUE',
-    waste:     String(r[col.waste] || 'ไม่ได้ทิ้ง Waste')
+    timestamp: row[col.ts] ? (row[col.ts] instanceof Date ? row[col.ts].toISOString() : String(row[col.ts])) : '',
+    ward: String(row[col.ward] || ''),
+    worker: String(row[col.worker] || ''),
+    reagent: parseAnyNum_(row[col.r_pct]),
+    reagentExpiry: isoDate_(row[col.r_exp]),
+    reagentLot: String(row[col.r_lot] || ''),
+    wash: parseAnyNum_(row[col.w_pct]),
+    washExpiry: isoDate_(row[col.w_exp]),
+    washLot: String(row[col.w_lot] || ''),
+    qc: parseAnyNum_(row[col.q_pct]),
+    qcExpiry: isoDate_(row[col.q_exp]),
+    qcLot: String(row[col.q_lot] || ''),
+    comment: String(row[col.cmt] || ''),
+    deprotein: String(row[col.dp]) === DONE_TH || String(row[col.dp]).toUpperCase() === 'TRUE',
+    condition: String(row[col.cd]) === DONE_TH || String(row[col.cd]).toUpperCase() === 'TRUE',
+    waste: String(row[col.waste] || DEFAULT_WASTE),
   };
 }
 
-// ─── Entry Points ──────────────────────────────────────────────────
-
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('index').setTitle('Blood Gas Tracker').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Blood Gas Tracker')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
 function doPost(e) {
@@ -121,25 +167,30 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
     const data = body.data || {};
-    
-    // Auth Check for sensitive actions
-    const authActions = ['saveRecord', 'getLogs', 'getLastRecord'];
+    const authActions = ['saveRecord', 'getLogs', 'getLastRecord', 'getWardDataBatch', 'getWards'];
+
     if (authActions.includes(action)) {
-      const isAuthorized = checkAuth_(body.username, body.password);
-      if (!isAuthorized) return sendJson_({ success: false, message: 'Unauthorized' });
+      if (body.sessionToken) {
+        requireSession_(body.sessionToken);
+      } else {
+        const isAuthorized = checkAuth_(body.username, body.password);
+        if (!isAuthorized) return sendJson_({ success: false, message: 'Unauthorized' });
+      }
     }
 
     let result;
     if (action === 'login') result = login(body.username, body.password);
-    else if (action === 'getLastRecord') result = getLastRecord(body.ward);
-    else if (action === 'getLogs') result = getLogs(body.ward);
-    else if (action === 'saveRecord') result = saveRecord(data);
-    else if (action === 'getWards') result = getWards();
+    else if (action === 'getWardDataBatch') result = getWardDataBatch(body.ward, body.sessionToken);
+    else if (action === 'getLastRecord') result = getLastRecord(body.ward, body.sessionToken);
+    else if (action === 'getLogs') result = getLogs(body.ward, body.sessionToken);
+    else if (action === 'saveRecord') result = saveRecord(data, body.sessionToken);
+    else if (action === 'getWards') result = getWards(body.sessionToken);
     else result = { success: false, message: 'Invalid Action' };
 
     return sendJson_(result);
   } catch (err) {
-    return sendJson_({ success: false, message: err.toString() });
+    const message = String(err && err.message ? err.message : err);
+    return sendJson_({ success: false, message: message === 'Unauthorized' ? 'Unauthorized' : message });
   }
 }
 
@@ -153,122 +204,110 @@ function checkAuth_(u, p) {
   return res.success;
 }
 
-// ─── Actions ────────────────────────────────────────────────────────
-
 function login(u, p) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_SHEET) || initSheets().ush;
   const rows = sh.getDataRange().getValues();
   const searchU = String(u || '').trim().toLowerCase();
   const searchP = hashPassword_(p);
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).trim().toLowerCase() === searchU) {
       const storedP = String(rows[i][1]);
-      // Support both hashed and plain (temporary transition)
       if (storedP === searchP || storedP === String(p)) {
-        return { success: true, user: { username: u, fullName: rows[i][2], role: rows[i][3], ward: rows[i][5] || '' } };
+        const user = {
+          username: u,
+          fullName: rows[i][2],
+          role: rows[i][3],
+          ward: rows[i][5] || '',
+        };
+        return { success: true, user: user, sessionToken: createSession_(user) };
       }
     }
   }
+
   return { success: false, message: 'Invalid credentials' };
 }
 
-function getWards() {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WARDS_SHEET) || initSheets().wsh;
-  return { success: true, wards: sh.getDataRange().getValues().slice(1).map(r => String(r[0]).trim()).filter(Boolean) };
+function getWards(sessionToken) {
+  requireSession_(sessionToken);
+  return getWards_();
 }
 
-function getLastRecord(wardName) {
+function getWards_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WARDS_SHEET) || initSheets().wsh;
+  return {
+    success: true,
+    wards: sh.getDataRange().getValues().slice(1).map(r => String(r[0]).trim()).filter(Boolean),
+  };
+}
+
+function getLastRecord(wardName, sessionToken) {
+  requireSession_(sessionToken);
+  return getLastRecord_(wardName);
+}
+
+function getLastRecord_(wardName) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RECORDS_SHEET) || initSheets().rsh;
   const col = getColMap_(sh);
   const search = String(wardName || '').trim().toLowerCase();
-  
-  // To get the "Latest Status", we need to look at the Logs to find the most recent 
-  // non-empty/non-zero values for each specific reagent if the current record is partial.
-  // However, the Records sheet is supposed to hold the "Current Status" for each ward.
-  // Let's improve the logic to ensure we return the most complete picture.
-  
   const finder = sh.createTextFinder(wardName).matchCase(false).matchEntireCell(true);
   const matches = finder.findAll();
-  
+
   if (matches.length > 0) {
     for (let i = matches.length - 1; i >= 0; i--) {
       const rowNum = matches[i].getRow();
       const rowData = sh.getRange(rowNum, 1, 1, sh.getLastColumn()).getValues()[0];
       if (String(rowData[col.ward]).trim().toLowerCase() === search) {
-        const record = toObj_(rowData, col);
-        
-        // If the record in 'Records' sheet is missing some data (e.g., Lot or Expiry),
-        // we could potentially look back into Logs to find them, but usually 
-        // the 'Records' sheet should be the source of truth for "current" values.
-        // We ensure parseAnyNum_ treats empty as null to allow frontend to handle it.
-        
-        return { 
-          success: true, 
-          record: record,
-          _debug_col: col
+        return {
+          success: true,
+          record: toObj_(rowData, col),
         };
       }
     }
   }
+
   return { success: true, record: null };
 }
 
-function getLogs(wardName) {
+function getLogs(wardName, sessionToken) {
+  requireSession_(sessionToken);
+  return getLogs_(wardName);
+}
+
+function getLogs_(wardName) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LOGS_SHEET) || initSheets().lsh;
   const col = getColMap_(sh);
   const filter = wardName ? String(wardName).trim().toLowerCase() : null;
-  
-  // Optimization: Only read the last 50 rows for logs
   const lastRow = sh.getLastRow();
   const startRow = Math.max(2, lastRow - 50);
   const numRows = lastRow - startRow + 1;
-  
+
   if (numRows <= 0) return { success: true, logs: [] };
-  
+
   const data = sh.getRange(startRow, 1, numRows, sh.getLastColumn()).getValues();
-  const logs = data.reverse()
-    .filter(r => !filter || String(r[col.ward]).trim().toLowerCase() === filter)
+  const logs = data
+    .reverse()
+    .filter(row => !filter || String(row[col.ward]).trim().toLowerCase() === filter)
     .slice(0, 20)
-    .map(r => toObj_(r, col));
-    
-  return { success: true, logs };
+    .map(row => toObj_(row, col));
+
+  return { success: true, logs: logs };
 }
 
-function saveRecord(data) {
+function saveRecord(data, sessionToken) {
+  const sessionUser = requireSession_(sessionToken);
+  return saveRecord_(data, sessionUser);
+}
+
+function saveRecord_(data, sessionUser) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const rsh = ss.getSheetByName(RECORDS_SHEET) || initSheets().rsh;
   const lsh = ss.getSheetByName(LOGS_SHEET) || initSheets().lsh;
   const colR = getColMap_(rsh);
   const colL = getColMap_(lsh);
-
-  function prepareRow(col) {
-    let row = new Array(Math.max(...Object.values(col)) + 1).fill('');
-    if (col.ts >= 0) row[col.ts] = new Date();
-    if (col.ward >= 0) row[col.ward] = data.ward || '';
-    if (col.worker >= 0) row[col.worker] = data.worker || '';
-    if (col.r_pct >= 0) row[col.r_pct] = Number(data.reagent) || 0;
-    if (col.r_exp >= 0) row[col.r_exp] = data.reagentExpiry || '';
-    if (col.r_lot >= 0) row[col.r_lot] = data.reagentLot || '';
-    if (col.w_pct >= 0) row[col.w_pct] = Number(data.wash) || 0;
-    if (col.w_exp >= 0) row[col.w_exp] = data.washExpiry || '';
-    if (col.w_lot >= 0) row[col.w_lot] = data.washLot || '';
-    if (col.q_pct >= 0) row[col.q_pct] = Number(data.qc) || 0;
-    if (col.q_exp >= 0) row[col.q_exp] = data.qcExpiry || '';
-    if (col.q_lot >= 0) row[col.q_lot] = data.qcLot || '';
-    if (col.cmt >= 0) row[col.cmt] = data.comment || '';
-    if (col.dp >= 0) row[col.dp] = data.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
-    if (col.cd >= 0) row[col.cd] = data.condition ? 'ทำ' : 'ไม่ได้ทำ';
-    if (col.waste >= 0) row[col.waste] = data.waste || 'ไม่ได้ทิ้ง Waste';
-    return row;
-  }
-
-  const wardSearch = String(data.ward || '').trim().toLowerCase();
-  
-  // Optimization: Find existing record to merge data
   const finder = rsh.createTextFinder(data.ward).matchCase(false).matchEntireCell(true);
   const match = finder.findNext();
-  let targetRow = match ? match.getRow() : -1;
+  const targetRow = match ? match.getRow() : -1;
   let existingData = {};
 
   if (targetRow > 1) {
@@ -276,79 +315,145 @@ function saveRecord(data) {
     existingData = toObj_(rowValues, colR);
   }
 
-  // Merge: Use new data if provided, otherwise keep existing
   const merged = {
     ...existingData,
     ...data,
+    worker: data.worker || sessionUser.fullName || sessionUser.username,
     reagent: parseAnyNum_(data.reagent) ?? existingData.reagent,
-    wash:    parseAnyNum_(data.wash)    ?? existingData.wash,
-    qc:      parseAnyNum_(data.qc)      ?? existingData.qc,
-    // Only update expiry/lot if the corresponding pct is updated or if explicitly provided
+    wash: parseAnyNum_(data.wash) ?? existingData.wash,
+    qc: parseAnyNum_(data.qc) ?? existingData.qc,
     reagentExpiry: data.reagentExpiry || existingData.reagentExpiry,
-    reagentLot:    data.reagentLot    || existingData.reagentLot,
-    washExpiry:    data.washExpiry    || existingData.washExpiry,
-    washLot:       data.washLot       || existingData.washLot,
-    qcExpiry:      data.qcExpiry      || existingData.qcExpiry,
-    qcLot:         data.qcLot         || existingData.qcLot
+    reagentLot: data.reagentLot || existingData.reagentLot,
+    washExpiry: data.washExpiry || existingData.washExpiry,
+    washLot: data.washLot || existingData.washLot,
+    qcExpiry: data.qcExpiry || existingData.qcExpiry,
+    qcLot: data.qcLot || existingData.qcLot,
+    waste: data.waste || existingData.waste || DEFAULT_WASTE,
   };
 
-  function prepareRow(col, recordData) {
-    let row = new Array(Math.max(...Object.values(col)) + 1).fill('');
-    if (col.ts >= 0) row[col.ts] = new Date();
-    if (col.ward >= 0) row[col.ward] = recordData.ward || '';
-    if (col.worker >= 0) row[col.worker] = recordData.worker || '';
-    if (col.r_pct >= 0) row[col.r_pct] = recordData.reagent ?? '';
-    if (col.r_exp >= 0) row[col.r_exp] = recordData.reagentExpiry || '';
-    if (col.r_lot >= 0) row[col.r_lot] = recordData.reagentLot || '';
-    if (col.w_pct >= 0) row[col.w_pct] = recordData.wash ?? '';
-    if (col.w_exp >= 0) row[col.w_exp] = recordData.washExpiry || '';
-    if (col.w_lot >= 0) row[col.w_lot] = recordData.washLot || '';
-    if (col.q_pct >= 0) row[col.q_pct] = recordData.qc ?? '';
-    if (col.q_exp >= 0) row[col.q_exp] = recordData.qcExpiry || '';
-    if (col.q_lot >= 0) row[col.q_lot] = recordData.qcLot || '';
-    if (col.cmt >= 0) row[col.cmt] = recordData.comment || '';
-    if (col.dp >= 0) row[col.dp] = recordData.deprotein ? 'ทำ' : 'ไม่ได้ทำ';
-    if (col.cd >= 0) row[col.cd] = recordData.condition ? 'ทำ' : 'ไม่ได้ทำ';
-    if (col.waste >= 0) row[col.waste] = recordData.waste || 'ไม่ได้ทิ้ง Waste';
-    return row;
-  }
-
-  const rowR = prepareRow(colR, merged);
+  const rowR = prepareRow_(colR, merged);
   if (targetRow > 1) {
     rsh.getRange(targetRow, 1, 1, rowR.length).setValues([rowR]);
   } else {
     rsh.appendRow(rowR);
   }
 
-  lsh.appendRow(prepareRow(colL, merged));
+  lsh.appendRow(prepareRow_(colL, merged));
+  buildPackChangeLogs_(merged).forEach(changeLog => {
+    lsh.appendRow(prepareRow_(colL, { ...merged, comment: changeLog }));
+  });
   return { success: true, message: 'บันทึกสำเร็จ' };
+}
+
+function prepareRow_(col, recordData) {
+  const row = new Array(Math.max(...Object.values(col)) + 1).fill('');
+  if (col.ts >= 0) row[col.ts] = new Date();
+  if (col.ward >= 0) row[col.ward] = recordData.ward || '';
+  if (col.worker >= 0) row[col.worker] = recordData.worker || '';
+  if (col.r_pct >= 0) row[col.r_pct] = recordData.reagent ?? '';
+  if (col.r_exp >= 0) row[col.r_exp] = recordData.reagentExpiry || '';
+  if (col.r_lot >= 0) row[col.r_lot] = recordData.reagentLot || '';
+  if (col.w_pct >= 0) row[col.w_pct] = recordData.wash ?? '';
+  if (col.w_exp >= 0) row[col.w_exp] = recordData.washExpiry || '';
+  if (col.w_lot >= 0) row[col.w_lot] = recordData.washLot || '';
+  if (col.q_pct >= 0) row[col.q_pct] = recordData.qc ?? '';
+  if (col.q_exp >= 0) row[col.q_exp] = recordData.qcExpiry || '';
+  if (col.q_lot >= 0) row[col.q_lot] = recordData.qcLot || '';
+  if (col.cmt >= 0) row[col.cmt] = recordData.comment || '';
+  if (col.dp >= 0) row[col.dp] = recordData.deprotein ? DONE_TH : NOT_DONE_TH;
+  if (col.cd >= 0) row[col.cd] = recordData.condition ? DONE_TH : NOT_DONE_TH;
+  if (col.waste >= 0) row[col.waste] = recordData.waste || DEFAULT_WASTE;
+  return row;
+}
+
+function buildPackChangeLogs_(recordData) {
+  const specs = [
+    { label: 'Reagent', changedKey: 'reagentPackChanged', valueKey: 'reagent', expiryKey: 'reagentExpiry', lotKey: 'reagentLot' },
+    { label: 'Wash', changedKey: 'washPackChanged', valueKey: 'wash', expiryKey: 'washExpiry', lotKey: 'washLot' },
+    { label: 'QC', changedKey: 'qcPackChanged', valueKey: 'qc', expiryKey: 'qcExpiry', lotKey: 'qcLot' },
+  ];
+
+  return specs
+    .filter(spec => !!recordData[spec.changedKey])
+    .map(spec => {
+      const parts = ['เปลี่ยน ' + spec.label + ' pack ใหม่'];
+      if (recordData[spec.valueKey] !== null && recordData[spec.valueKey] !== undefined && recordData[spec.valueKey] !== '') {
+        parts.push('คงเหลือ ' + formatLogValue_(recordData[spec.valueKey], '%'));
+      }
+      if (recordData[spec.expiryKey]) {
+        parts.push('EXP ' + formatLogValue_(recordData[spec.expiryKey]));
+      }
+      if (recordData[spec.lotKey]) {
+        parts.push('Lot ' + formatLogValue_(recordData[spec.lotKey]));
+      }
+      const userComment = String(recordData.comment || '').trim();
+      if (userComment) {
+        parts.push('หมายเหตุ: ' + userComment);
+      }
+      return parts.join(' | ');
+    });
+}
+
+function formatLogValue_(value, suffix) {
+  if (value === null || value === undefined || value === '') return '-';
+  return String(value).trim() + (suffix || '');
 }
 
 function initSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const headers = ['Timestamp', 'Ward', 'Worker', 'Reagent (%)', 'Reagent Expiry', 'Wash (%)', 'Wash Expiry', 'QC (%)', 'QC Expiry', 'Comment', 'Deprotein', 'Condition', 'Waste', 'Reagent Lot', 'Wash Lot', 'QC Lot'];
-  [RECORDS_SHEET, LOGS_SHEET].forEach(n => {
-    let sh = ss.getSheetByName(n) || ss.insertSheet(n);
+  const headers = [
+    'Timestamp',
+    'Ward',
+    'Worker',
+    'Reagent (%)',
+    'Reagent Expiry',
+    'Wash (%)',
+    'Wash Expiry',
+    'QC (%)',
+    'QC Expiry',
+    'Comment',
+    'Deprotein',
+    'Condition',
+    'Waste',
+    'Reagent Lot',
+    'Wash Lot',
+    'QC Lot',
+  ];
+
+  [RECORDS_SHEET, LOGS_SHEET].forEach(name => {
+    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
     if (sh.getLastRow() === 0) sh.appendRow(headers);
   });
-  return { 
-    rsh: ss.getSheetByName(RECORDS_SHEET), 
-    lsh: ss.getSheetByName(LOGS_SHEET), 
-    ush: ss.getSheetByName(USERS_SHEET) || ss.insertSheet(USERS_SHEET), 
-    wsh: ss.getSheetByName(WARDS_SHEET) || ss.insertSheet(WARDS_SHEET) 
+
+  const ush = ss.getSheetByName(USERS_SHEET) || ss.insertSheet(USERS_SHEET);
+  if (ush.getLastRow() === 0) ush.appendRow(USER_HEADERS);
+
+  const wsh = ss.getSheetByName(WARDS_SHEET) || ss.insertSheet(WARDS_SHEET);
+  if (wsh.getLastRow() === 0) wsh.appendRow(['Ward']);
+
+  return {
+    rsh: ss.getSheetByName(RECORDS_SHEET),
+    lsh: ss.getSheetByName(LOGS_SHEET),
+    ush: ush,
+    wsh: wsh,
   };
 }
 
 function isoDate_(v) {
   if (!v) return '';
   try {
-    let d = (v instanceof Date) ? v : new Date(v);
+    const d = v instanceof Date ? v : new Date(v);
     if (isNaN(d.getTime())) {
-      // Try parsing common Thai formats or simple strings if Date fails
       const s = String(v);
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
       return s;
     }
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  } catch (e) { return String(v); }
+    return [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-');
+  } catch (err) {
+    return String(v);
+  }
 }
