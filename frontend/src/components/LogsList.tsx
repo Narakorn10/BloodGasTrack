@@ -1,122 +1,161 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { fmtDT, fmtD } from "@/lib/utils";
-import { User, Calendar, CheckCircle2, Trash2, MessageCircle } from "lucide-react";
+import { fmtD, fmtDT } from "@/lib/utils";
+import { BloodGasRecord } from "@/lib/types";
 
-interface BloodGasRecord {
-  timestamp: string;
-  ward: string;
-  worker: string;
+interface DailyLogRow {
+  dateKey: string;
+  latestTimestamp: string;
+  latestWorker: string;
+  latestWard: string;
   reagent: number;
-  reagentExpiry: string;
-  reagentLot: string;
   wash: number;
-  washExpiry: string;
-  washLot: string;
   qc: number;
-  qcExpiry: string;
-  qcLot: string;
-  comment: string;
   deprotein: boolean;
   condition: boolean;
-  waste: string;
+  waste: boolean;
+  hasComment: boolean;
+  packChanged: boolean;
+  entries: number;
+}
+
+function formatPercent(value: number | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "-";
+  return `${value}%`;
+}
+
+function getDateKey(timestamp: string) {
+  if (!timestamp) return "";
+  return timestamp.slice(0, 10);
+}
+
+function groupLogsByDay(logs: BloodGasRecord[]): DailyLogRow[] {
+  const grouped = new Map<string, DailyLogRow>();
+
+  for (const log of logs) {
+    if (log.ward === "(Login)") continue;
+
+    const dateKey = getDateKey(log.timestamp);
+    const existing = grouped.get(dateKey);
+    const isNewer = !existing || new Date(log.timestamp).getTime() > new Date(existing.latestTimestamp).getTime();
+
+    if (!existing) {
+      grouped.set(dateKey, {
+        dateKey,
+        latestTimestamp: log.timestamp,
+        latestWorker: log.worker || "-",
+        latestWard: log.ward || "-",
+        reagent: log.reagent,
+        wash: log.wash,
+        qc: log.qc,
+        deprotein: !!log.deprotein,
+        condition: !!log.condition,
+        waste: log.waste === "ทิ้ง Waste",
+        hasComment: !!log.comment?.trim(),
+        packChanged: !!(log.reagentPackChanged || log.washPackChanged || log.qcPackChanged),
+        entries: 1,
+      });
+      continue;
+    }
+
+    existing.deprotein = existing.deprotein || !!log.deprotein;
+    existing.condition = existing.condition || !!log.condition;
+    existing.waste = existing.waste || log.waste === "ทิ้ง Waste";
+    existing.hasComment = existing.hasComment || !!log.comment?.trim();
+    existing.packChanged =
+      existing.packChanged || !!(log.reagentPackChanged || log.washPackChanged || log.qcPackChanged);
+    existing.entries += 1;
+
+    if (isNewer) {
+      existing.latestTimestamp = log.timestamp;
+      existing.latestWorker = log.worker || "-";
+      existing.latestWard = log.ward || "-";
+      existing.reagent = log.reagent;
+      existing.wash = log.wash;
+      existing.qc = log.qc;
+    }
+  }
+
+  return Array.from(grouped.values()).sort(
+    (a, b) => new Date(b.latestTimestamp).getTime() - new Date(a.latestTimestamp).getTime()
+  );
+}
+
+function StatusCheckbox({ checked, label }: { checked: boolean; label: string }) {
+  return (
+    <label className="flex items-center justify-center">
+      <input
+        type="checkbox"
+        checked={checked}
+        readOnly
+        aria-label={label}
+        className="h-4 w-4 rounded border-slate-300 text-[#0a4d68] focus:ring-0"
+      />
+    </label>
+  );
 }
 
 export function LogsList({ logs }: { logs: BloodGasRecord[] }) {
-  if (!logs || logs.length === 0) {
+  const dailyLogs = groupLogsByDay(logs);
+
+  if (dailyLogs.length === 0) {
     return <div className="py-10 text-center text-slate-400">ยังไม่มีประวัติการบันทึก</div>;
   }
 
   return (
-    <div className="space-y-4">
-      {logs.map((log, index) => {
-        if (log.ward === '(Login)') return null;
-
-        return (
-          <motion.div
-            key={log.timestamp + index}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="group relative bg-white border border-slate-200 rounded-2xl p-5 hover:border-sky-300 hover:shadow-md transition-all duration-300"
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 group-hover:bg-sky-50 group-hover:text-sky-600 transition-colors">
-                  <User size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-800">{log.ward}</div>
-                  <div className="text-xs text-slate-400 flex items-center gap-1">
-                    <User size={12} /> {log.worker || 'ไม่ทราบชื่อ'}
+    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm text-slate-700">
+          <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+            <tr>
+              <th className="px-4 py-3 text-left font-bold">วันที่</th>
+              <th className="px-4 py-3 text-left font-bold">ข้อมูลล่าสุด</th>
+              <th className="px-3 py-3 text-center font-bold">Reagent</th>
+              <th className="px-3 py-3 text-center font-bold">Wash</th>
+              <th className="px-3 py-3 text-center font-bold">QC</th>
+              <th className="px-3 py-3 text-center font-bold">Deprotein</th>
+              <th className="px-3 py-3 text-center font-bold">Condition</th>
+              <th className="px-3 py-3 text-center font-bold">Waste</th>
+              <th className="px-3 py-3 text-center font-bold">Comment</th>
+              <th className="px-3 py-3 text-center font-bold">Pack ใหม่</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dailyLogs.map((log) => (
+              <tr key={log.dateKey} className="border-t border-slate-100 align-middle hover:bg-sky-50/30">
+                <td className="px-4 py-3">
+                  <div className="font-bold text-slate-800">{fmtD(log.dateKey)}</div>
+                  <div className="text-xs text-slate-400">{log.entries} รายการ</div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-slate-700">{fmtDT(log.latestTimestamp)}</div>
+                  <div className="text-xs text-slate-500">
+                    {log.latestWorker} · {log.latestWard}
                   </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-slate-600 flex items-center md:justify-end gap-1.5">
-                  <Calendar size={14} /> {fmtDT(log.timestamp)}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-sky-400" /> Reagent
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold font-mono text-slate-700">{log.reagent}%</span>
-                  <span className="text-[10px] text-slate-400">Exp: {fmtD(log.reagentExpiry)}</span>
-                </div>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400" /> Wash
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold font-mono text-slate-700">{log.wash}%</span>
-                  <span className="text-[10px] text-slate-400">Exp: {fmtD(log.washExpiry)}</span>
-                </div>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> QC
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold font-mono text-slate-700">{log.qc}%</span>
-                  <span className="text-[10px] text-slate-400">Exp: {fmtD(log.qcExpiry)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-3">
-              {log.deprotein && (
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-lg border border-emerald-100 flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Deprotein
-                </span>
-              )}
-              {log.condition && (
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-lg border border-emerald-100 flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Condition
-                </span>
-              )}
-              {log.waste === 'ทิ้ง Waste' && (
-                <span className="px-2.5 py-1 bg-rose-50 text-rose-700 text-[11px] font-bold rounded-lg border border-rose-100 flex items-center gap-1">
-                  <Trash2 size={12} /> ทิ้ง Waste
-                </span>
-              )}
-            </div>
-
-            {log.comment && (
-              <div className="mt-2 bg-slate-50 rounded-xl p-3 text-sm text-slate-600 italic flex gap-2 border border-slate-100">
-                <MessageCircle size={16} className="text-slate-400 shrink-0 mt-0.5" />
-                &quot;{log.comment}&quot;
-              </div>
-            )}
-          </motion.div>
-        );
-      })}
+                </td>
+                <td className="px-3 py-3 text-center font-mono font-bold">{formatPercent(log.reagent)}</td>
+                <td className="px-3 py-3 text-center font-mono font-bold">{formatPercent(log.wash)}</td>
+                <td className="px-3 py-3 text-center font-mono font-bold">{formatPercent(log.qc)}</td>
+                <td className="px-3 py-3">
+                  <StatusCheckbox checked={log.deprotein} label="Deprotein" />
+                </td>
+                <td className="px-3 py-3">
+                  <StatusCheckbox checked={log.condition} label="Condition" />
+                </td>
+                <td className="px-3 py-3">
+                  <StatusCheckbox checked={log.waste} label="Waste" />
+                </td>
+                <td className="px-3 py-3">
+                  <StatusCheckbox checked={log.hasComment} label="Comment" />
+                </td>
+                <td className="px-3 py-3">
+                  <StatusCheckbox checked={log.packChanged} label="Pack changed" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
