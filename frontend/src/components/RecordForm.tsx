@@ -222,7 +222,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     reset,
     setValue,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -300,7 +300,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
   const wasteSelected = wasteValue === "ทิ้ง Waste";
 
   useEffect(() => {
-    if (!onValuesChange) return;
+    if (!onValuesChange || !isDirty) return;
 
     const currentData: Record<string, unknown> = { ...watchedValues };
     if (watchedValues.reagent) currentData.reagent = parseFloat(watchedValues.reagent);
@@ -321,7 +321,7 @@ export function RecordForm({ ward, onSuccess, showToast, onValuesChange, initial
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [watchedValues, onValuesChange]);
+  }, [watchedValues, onValuesChange, isDirty]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);

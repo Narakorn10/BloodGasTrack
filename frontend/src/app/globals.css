@@ -101,6 +101,11 @@ input[type="number"] {
   }
 }
 
+/* Clinical worksheet visual language: dashboard controls use square corners. */
+#mainApp [class*="rounded"] {
+  border-radius: 0 !important;
+}
+
 @keyframes float {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-5px); }

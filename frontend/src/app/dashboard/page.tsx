@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api } from "@/lib/api";
+import { api, isMockMode } from "@/lib/api";
 import { RecordForm } from "@/components/RecordForm";
+import { ServiceReportForm } from "@/components/ServiceReportForm";
 import { WardTabs } from "@/components/WardTabs";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { LogsList } from "@/components/LogsList";
@@ -17,11 +18,12 @@ export default function DashboardPage() {
   const [wards, setWards] = useState<string[]>([]);
   const [record, setRecord] = useState<BloodGasRecord | null>(null);
   const [previewData, setPreviewData] = useState<Partial<BloodGasRecord> | null>(null);
-  const [logs, setLogs] = useState<BloodGasRecord[]>([]);
+  const [logRefreshKey, setLogRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const isTechnician = user?.role?.toLowerCase() === "technician";
 
   // We'll use this ref to check ward changes without triggering dependency loops in fetchData
   const lastWardRef = useRef("");
@@ -43,13 +45,8 @@ export default function DashboardPage() {
     
     setPreviewData(null); 
     try {
-      const [recRes, logRes] = await Promise.all([
-        api.post("getLastRecord", { ward: targetWard }),
-        api.post("getLogs", { ward: targetWard })
-      ]);
-      
+      const recRes = await api.post("getLastRecord", { ward: targetWard });
       setRecord(recRes.record);
-      setLogs(logRes.logs || []);
       lastWardRef.current = targetWard;
     } catch {
       showToast("❌ การดึงข้อมูลผิดพลาด", true);
@@ -105,7 +102,7 @@ export default function DashboardPage() {
     let isMounted = true;
     
     const triggerFetch = async () => {
-      if (ward) {
+      if (ward && !isTechnician) {
         await fetchData(ward);
       } else if (user && isMounted) {
         setLoading(false);
@@ -115,10 +112,15 @@ export default function DashboardPage() {
     triggerFetch();
     
     return () => { isMounted = false; };
-  }, [ward, fetchData, user]);
+  }, [ward, fetchData, user, isTechnician]);
 
   const displayRecord = previewData ? { ...record, ...previewData } : record;
-  const isMock = typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_GAS_URL;
+  const isMock = typeof window !== 'undefined' && isMockMode;
+
+  const handleRecordSuccess = async () => {
+    await fetchData(ward);
+    setLogRefreshKey((current) => current + 1);
+  };
 
   if (!user && !loading) return null;
 
@@ -153,7 +155,7 @@ export default function DashboardPage() {
       </motion.div>
 
       <div className="space-y-6">
-        <section className="space-y-3">
+        {!isTechnician && <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
               <LayoutDashboard size={12} /> สถานะปัจจุบันของ {ward}
@@ -186,21 +188,30 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </section>
+        </section>}
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
-          <section className="space-y-4">
+        <div className="space-y-8">
+          <section className="mx-auto w-full max-w-4xl space-y-4">
             <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest px-1">
               <PenLine size={14} /> บันทึกข้อมูลน้ำยา
             </div>
             <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
-              <RecordForm 
-                ward={ward} 
-                onSuccess={() => fetchData(ward)} 
-                showToast={showToast} 
-                onValuesChange={setPreviewData}
-                initialData={record}
-              />
+              {isTechnician && user ? (
+                <ServiceReportForm
+                  ward={ward}
+                  user={user}
+                  onSuccess={() => setLogRefreshKey((current) => current + 1)}
+                  showToast={showToast}
+                />
+              ) : (
+                <RecordForm 
+                  ward={ward} 
+                  onSuccess={handleRecordSuccess}
+                  showToast={showToast} 
+                  onValuesChange={setPreviewData}
+                  initialData={record}
+                />
+              )}
             </div>
           </section>
 
@@ -208,9 +219,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest px-1">
               <History size={14} /> ประวัติการทำงาน
             </div>
-            <div className="bg-slate-50/50 rounded-[2rem] p-6 border border-slate-200/60 max-h-[800px] overflow-y-auto custom-scrollbar no-scrollbar sm:block">
-              <LogsList logs={logs} />
-            </div>
+            <LogsList ward={ward} refreshKey={logRefreshKey} />
           </section>
         </div>
       </div>

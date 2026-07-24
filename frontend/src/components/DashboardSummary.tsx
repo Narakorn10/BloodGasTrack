@@ -10,10 +10,11 @@ interface GaugeProps {
   val: number | undefined;
   exp: string | undefined;
   lot: string | undefined;
+  changedAt: string | undefined;
   color: string;
 }
 
-export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
+export function CompactGauge({ label, val, exp, lot, changedAt, color }: GaugeProps) {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
   
@@ -72,6 +73,9 @@ export function CompactGauge({ label, val, exp, lot, color }: GaugeProps) {
         <div className={`text-[11px] font-semibold truncate ${isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-slate-400'}`}>
           {exp ? `Exp: ${fmtD(exp)}` : '–'}
         </div>
+        <div className="mt-1 truncate text-[10px] font-semibold text-slate-400">
+          เปลี่ยนล่าสุด: <span className="text-slate-600">{changedAt ? fmtD(changedAt) : "ยังไม่มีข้อมูล"}</span>
+        </div>
       </div>
 
       {isCritical && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
@@ -96,6 +100,7 @@ export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> |
           val={record.reagent} 
           exp={record.reagentExpiry} 
           lot={record.reagentLot}
+          changedAt={record.reagentChangedAt}
           color="#0ea5e9"
         />
         <CompactGauge 
@@ -103,6 +108,7 @@ export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> |
           val={record.wash} 
           exp={record.washExpiry} 
           lot={record.washLot}
+          changedAt={record.washChangedAt}
           color="#8b5cf6"
         />
         <CompactGauge 
@@ -110,6 +116,7 @@ export function DashboardSummary({ record }: { record: Partial<BloodGasRecord> |
           val={record.qc} 
           exp={record.qcExpiry} 
           lot={record.qcLot}
+          changedAt={record.qcChangedAt}
           color="#10b981"
         />
       </div>
