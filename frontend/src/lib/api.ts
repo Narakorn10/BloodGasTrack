@@ -9,6 +9,11 @@ const GAS_URL = !FORCE_MOCK && process.env.NEXT_PUBLIC_GAS_URL
 
 export const isMockMode = !GAS_URL;
 
+type ApiResponse = {
+  sessionToken?: string;
+  [key: string]: any;
+};
+
 interface ApiPayload {
   ward?: string;
   username?: string;
@@ -19,7 +24,7 @@ interface ApiPayload {
 }
 
 export const api = {
-  async post(action: string, payload: ApiPayload = {}) {
+  async post(action: string, payload: ApiPayload = {}): Promise<ApiResponse> {
     // 1. Get credentials from localStorage if available
     let username = payload.username;
     let password = payload.password;
@@ -220,7 +225,7 @@ export const api = {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
 
-      const responseData = response.data as { sessionToken?: unknown };
+      const responseData = response.data as ApiResponse;
       if (typeof window !== 'undefined' && typeof responseData.sessionToken === 'string' && responseData.sessionToken) {
         localStorage.setItem("sessionToken", responseData.sessionToken);
         const savedUser = localStorage.getItem("user");

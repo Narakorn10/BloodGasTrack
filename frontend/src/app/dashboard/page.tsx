@@ -52,7 +52,11 @@ export default function DashboardPage() {
     
     setPreviewData(null); 
     try {
-      const recRes = await api.post("getLastRecord", { ward: targetWard });
+      const recRes = await api.post("getLastRecord", { ward: targetWard }) as {
+        success: boolean;
+        message?: string;
+        record: BloodGasRecord | null;
+      };
       if (!recRes.success) {
         if (recRes.message === "Unauthorized") handleUnauthorized();
         throw new Error(recRes.message || "Unable to load ward data");
@@ -81,7 +85,11 @@ export default function DashboardPage() {
 
       let availableWards: string[] = [];
       try {
-        const wardRes = await api.post("getWards");
+        const wardRes = await api.post("getWards") as {
+          success: boolean;
+          message?: string;
+          wards?: string[];
+        };
         if (!wardRes.success) {
           if (wardRes.message === "Unauthorized") {
             handleUnauthorized();
