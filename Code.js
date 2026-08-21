@@ -168,7 +168,7 @@ function requireSession_(sessionToken) {
 function authenticateRequest_(body) {
   const existingUser = getSessionUser_(body && body.sessionToken);
   if (existingUser) {
-    return { sessionToken: body.sessionToken, refreshed: false };
+    return { user: existingUser, sessionToken: body.sessionToken, refreshed: false };
   }
 
   // The browser sends credentials alongside its cached token.  If Apps Script's
@@ -177,7 +177,7 @@ function authenticateRequest_(body) {
   const loginResult = login(body && body.username, body && body.password);
   if (!loginResult.success) return null;
 
-  return { sessionToken: loginResult.sessionToken, refreshed: true };
+  return { user: loginResult.user, sessionToken: loginResult.sessionToken, refreshed: true };
 }
 
 function isAdmin_(user) {
@@ -200,8 +200,7 @@ function assertWardAccess_(user, requestedWard) {
   return assignedWard;
 }
 
-function getWardDataBatch(wardName, sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function getWardDataBatch(wardName, sessionUser) {
   if (isTechnician_(sessionUser)) throw new Error('Technician users cannot view reagent records');
   const ward = assertWardAccess_(sessionUser, wardName);
   const lastRecordResult = getLastRecord_(ward);
@@ -348,14 +347,15 @@ function doPost(e) {
     }
 
     const sessionToken = authentication ? authentication.sessionToken : body.sessionToken;
+    const sessionUser = authentication ? authentication.user : null;
     let result;
     if (action === 'login') result = login(body.username, body.password);
-    else if (action === 'getWardDataBatch') result = getWardDataBatch(body.ward, sessionToken);
-    else if (action === 'getLastRecord') result = getLastRecord(body.ward, sessionToken);
-    else if (action === 'getLogs') result = getLogs(body, sessionToken);
-    else if (action === 'saveRecord') result = saveRecord(data, sessionToken);
-    else if (action === 'saveServiceReport') result = saveServiceReport(data, sessionToken);
-    else if (action === 'getWards') result = getWards(sessionToken);
+    else if (action === 'getWardDataBatch') result = getWardDataBatch(body.ward, sessionUser);
+    else if (action === 'getLastRecord') result = getLastRecord(body.ward, sessionUser);
+    else if (action === 'getLogs') result = getLogs(body, sessionUser);
+    else if (action === 'saveRecord') result = saveRecord(data, sessionUser);
+    else if (action === 'saveServiceReport') result = saveServiceReport(data, sessionUser);
+    else if (action === 'getWards') result = getWards(sessionUser);
     else result = { success: false, message: 'Invalid Action' };
 
     if (authentication && authentication.refreshed && result && typeof result === 'object') {
@@ -408,8 +408,7 @@ function login(u, p) {
   return { success: false, message: 'Invalid credentials' };
 }
 
-function getWards(sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function getWards(sessionUser) {
   return getWardsForUser_(sessionUser);
 }
 
@@ -429,8 +428,7 @@ function getWardsForUser_(sessionUser) {
   return getWards_();
 }
 
-function getLastRecord(wardName, sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function getLastRecord(wardName, sessionUser) {
   if (isTechnician_(sessionUser)) throw new Error('Technician users cannot view reagent records');
   return getLastRecord_(assertWardAccess_(sessionUser, wardName));
 }
@@ -459,8 +457,7 @@ function getLastRecord_(wardName) {
   return { success: true, record: null };
 }
 
-function getLogs(params, sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function getLogs(params, sessionUser) {
   const options = params || {};
   return getLogs_({
     ...options,
@@ -570,8 +567,7 @@ function getLogs_(options) {
   };
 }
 
-function saveServiceReport(data, sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function saveServiceReport(data, sessionUser) {
   if (!isTechnician_(sessionUser)) throw new Error('Only technician users can submit service reports');
 
   const ward = assertWardAccess_(sessionUser, data && data.ward);
@@ -633,8 +629,7 @@ function saveServiceReport(data, sessionToken) {
   }
 }
 
-function saveRecord(data, sessionToken) {
-  const sessionUser = requireSession_(sessionToken);
+function saveRecord(data, sessionUser) {
   if (isTechnician_(sessionUser)) throw new Error('Technician users can only submit service reports');
   return saveRecord_({
     ...data,
