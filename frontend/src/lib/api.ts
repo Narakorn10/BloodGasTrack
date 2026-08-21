@@ -220,7 +220,20 @@ export const api = {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       });
 
-      return response.data;
+      const responseData = response.data as { sessionToken?: unknown };
+      if (typeof window !== 'undefined' && typeof responseData.sessionToken === 'string' && responseData.sessionToken) {
+        localStorage.setItem("sessionToken", responseData.sessionToken);
+        const savedUser = localStorage.getItem("user");
+        if (savedUser) {
+          try {
+            localStorage.setItem("user", JSON.stringify({ ...JSON.parse(savedUser), sessionToken: responseData.sessionToken }));
+          } catch {
+            // A malformed cached profile must not prevent a valid refreshed session from being stored.
+          }
+        }
+      }
+
+      return responseData;
     } catch (error) {
       console.error(`[API Error] ${action}:`, error);
       return { success: false, message: "การเชื่อมต่อหลังบ้านผิดพลาด" };

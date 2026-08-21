@@ -33,6 +33,13 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const handleUnauthorized = useCallback(() => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("cred");
+    localStorage.removeItem("sessionToken");
+    router.replace("/login");
+  }, [router]);
+
   const fetchData = useCallback(async (targetWard: string) => {
     if (!targetWard) return;
     
@@ -46,6 +53,10 @@ export default function DashboardPage() {
     setPreviewData(null); 
     try {
       const recRes = await api.post("getLastRecord", { ward: targetWard });
+      if (!recRes.success) {
+        if (recRes.message === "Unauthorized") handleUnauthorized();
+        throw new Error(recRes.message || "Unable to load ward data");
+      }
       setRecord(recRes.record);
       lastWardRef.current = targetWard;
     } catch {
@@ -54,7 +65,7 @@ export default function DashboardPage() {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []); // Correctly breaks the infinite loop
+  }, [handleUnauthorized]);
 
   // Initialization: Load User and Wards
   useEffect(() => {
@@ -71,6 +82,13 @@ export default function DashboardPage() {
       let availableWards: string[] = [];
       try {
         const wardRes = await api.post("getWards");
+        if (!wardRes.success) {
+          if (wardRes.message === "Unauthorized") {
+            handleUnauthorized();
+            return;
+          }
+          throw new Error(wardRes.message || "Unable to load wards");
+        }
         availableWards = wardRes.wards || [];
 
         if (loggedUser.role !== 'admin' && loggedUser.ward) {
@@ -95,7 +113,7 @@ export default function DashboardPage() {
       }
     };
     init();
-  }, [router]);
+  }, [handleUnauthorized, router]);
 
   // Fetch data whenever selected ward changes
   useEffect(() => {

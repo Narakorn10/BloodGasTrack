@@ -165,6 +165,21 @@ function requireSession_(sessionToken) {
   return user;
 }
 
+function authenticateRequest_(body) {
+  const existingUser = getSessionUser_(body && body.sessionToken);
+  if (existingUser) {
+    return { sessionToken: body.sessionToken, refreshed: false };
+  }
+
+  // The browser sends credentials alongside its cached token.  If Apps Script's
+  // cache has evicted or expired that token, issue a new one instead of rejecting
+  // an otherwise valid signed-in user before any sheet operation can run.
+  const loginResult = login(body && body.username, body && body.password);
+  if (!loginResult.success) return null;
+
+  return { sessionToken: loginResult.sessionToken, refreshed: true };
+}
+
 function isAdmin_(user) {
   return String(user && user.role || '').trim().toLowerCase() === 'admin';
 }
@@ -325,25 +340,27 @@ function doPost(e) {
     const action = body.action;
     const data = body.data || {};
     const authActions = ['saveRecord', 'saveServiceReport', 'getLogs', 'getLastRecord', 'getWardDataBatch', 'getWards'];
+    let authentication = null;
 
     if (authActions.includes(action)) {
-      if (body.sessionToken) {
-        requireSession_(body.sessionToken);
-      } else {
-        const isAuthorized = checkAuth_(body.username, body.password);
-        if (!isAuthorized) return sendJson_({ success: false, message: 'Unauthorized' });
-      }
+      authentication = authenticateRequest_(body);
+      if (!authentication) return sendJson_({ success: false, message: 'Unauthorized' });
     }
 
+    const sessionToken = authentication ? authentication.sessionToken : body.sessionToken;
     let result;
     if (action === 'login') result = login(body.username, body.password);
-    else if (action === 'getWardDataBatch') result = getWardDataBatch(body.ward, body.sessionToken);
-    else if (action === 'getLastRecord') result = getLastRecord(body.ward, body.sessionToken);
-    else if (action === 'getLogs') result = getLogs(body, body.sessionToken);
-    else if (action === 'saveRecord') result = saveRecord(data, body.sessionToken);
-    else if (action === 'saveServiceReport') result = saveServiceReport(data, body.sessionToken);
-    else if (action === 'getWards') result = getWards(body.sessionToken);
+    else if (action === 'getWardDataBatch') result = getWardDataBatch(body.ward, sessionToken);
+    else if (action === 'getLastRecord') result = getLastRecord(body.ward, sessionToken);
+    else if (action === 'getLogs') result = getLogs(body, sessionToken);
+    else if (action === 'saveRecord') result = saveRecord(data, sessionToken);
+    else if (action === 'saveServiceReport') result = saveServiceReport(data, sessionToken);
+    else if (action === 'getWards') result = getWards(sessionToken);
     else result = { success: false, message: 'Invalid Action' };
+
+    if (authentication && authentication.refreshed && result && typeof result === 'object') {
+      result.sessionToken = sessionToken;
+    }
 
     return sendJson_(result);
   } catch (err) {

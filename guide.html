@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คู่มือการใช้งาน Blood Gas Tracker (Modernized)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --P: #005cf0;
+            --TX: #161616;
+            --TL: #525252;
+            --BD: #e0e0e0;
+            --S1: #f8f9fa;
+        }
+        body { font-family: 'Kanit', sans-serif; background-color: #ffffff; color: var(--TX); }
+        .mono { font-family: 'IBM Plex Mono', monospace; }
+        .clinical-card { border: 1px solid var(--BD); border-radius: 0; transition: all 0.2s ease; }
+        .clinical-card:hover { border-color: var(--P); background-color: var(--S1); }
+    </style>
+</head>
+<body class="py-16 px-6">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="text-left mb-20 border-b border-[var(--BD)] pb-10">
+            <div class="w-16 h-16 bg-[var(--P)] text-white flex items-center justify-center text-3xl mb-6">🩺</div>
+            <h1 class="text-4xl font-semibold text-[var(--TX)] mb-2 tracking-tight">คู่มือการใช้งาน Blood Gas Tracker</h1>
+            <p class="text-[var(--TL)] text-lg">ระบบจัดการน้ำยามาตรฐาน Clinical Professional (HP/Linear Hybrid)</p>
+        </header>
+
+        <!-- Section 1: Login -->
+        <section class="mb-20">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="text-[var(--P)] font-bold text-xl mono">01</div>
+                <h2 class="text-2xl font-semibold text-[var(--TX)]">การเข้าสู่ระบบ (Security)</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+                <div class="space-y-6">
+                    <p class="text-[var(--TL)] leading-relaxed">เข้าใช้งานผ่านระบบยืนยันตัวตนด้วย Username และ Password เพื่อความปลอดภัยและระบุตัวตนผู้บันทึกข้อมูลอย่างแม่นยำ</p>
+                    <div class="p-6 bg-[var(--S1)] border-l-4 border-[var(--P)]">
+                        <p class="text-sm font-medium text-[var(--TX)]">สไตล์: HP Professional</p>
+                        <p class="text-xs text-[var(--TL)] mt-1">เน้นความสะอาดตาและพื้นผิวสีขาวบริสุทธิ์</p>
+                    </div>
+                </div>
+                <!-- Mock: Login -->
+                <div class="border border-[var(--BD)] p-8 space-y-4 shadow-sm">
+                    <div class="w-10 h-10 bg-[var(--P)] flex items-center justify-center text-white">🩺</div>
+                    <div class="h-10 border border-[var(--BD)] bg-white w-full"></div>
+                    <div class="h-10 border border-[var(--BD)] bg-white w-full"></div>
+                    <div class="h-12 bg-[var(--P)] text-white flex items-center justify-center font-semibold">เข้าสู่ระบบ</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Dashboard -->
+        <section class="mb-20">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="text-[var(--P)] font-bold text-xl mono">02</div>
+                <h2 class="text-2xl font-semibold text-[var(--TX)]">Dashboard ปริมาณน้ำยา</h2>
+            </div>
+            <p class="text-[var(--TL)] mb-10 leading-relaxed">แสดงสถานะปัจจุบันของ Reagent, Wash และ QC ผ่านเกจวัดความละเอียดสูง</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="p-6 clinical-card">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-2 h-2 bg-[var(--P)]"></div>
+                        <span class="text-[10px] font-bold text-[var(--TL)] uppercase">Reagent</span>
+                    </div>
+                    <div class="text-4xl font-semibold mono mb-4">85%</div>
+                    <div class="h-1 bg-[var(--BD)] w-full mb-2"><div class="h-full bg-[var(--P)] w-[85%]"></div></div>
+                    <div class="text-[10px] text-[var(--TL)] mono italic">EXP: 2026-06-24</div>
+                </div>
+                <div class="p-6 clinical-card">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-2 h-2 bg-purple-500"></div>
+                        <span class="text-[10px] font-bold text-[var(--TL)] uppercase">Wash</span>
+                    </div>
+                    <div class="text-4xl font-semibold mono mb-4">42%</div>
+                    <div class="h-1 bg-[var(--BD)] w-full mb-2"><div class="h-full bg-purple-500 w-[42%]"></div></div>
+                    <div class="text-[10px] text-[var(--TL)] mono italic">EXP: 2026-07-15</div>
+                </div>
+                <div class="p-6 clinical-card">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-2 h-2 bg-teal-500"></div>
+                        <span class="text-[10px] font-bold text-[var(--TL)] uppercase">QC</span>
+                    </div>
+                    <div class="text-4xl font-semibold mono mb-4">90%</div>
+                    <div class="h-1 bg-[var(--BD)] w-full mb-2"><div class="h-full bg-teal-500 w-[90%]"></div></div>
+                    <div class="text-[10px] text-[var(--TL)] mono italic">EXP: 2026-06-30</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Examples -->
+        <section class="mb-20">
+            <div class="flex items-center gap-4 mb-12">
+                <div class="text-[var(--P)] font-bold text-xl mono">03</div>
+                <h2 class="text-2xl font-semibold text-[var(--TX)]">กรณีศึกษา (Example Scenarios)</h2>
+            </div>
+
+            <!-- Case 1 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-16 border-t border-[var(--BD)] pt-12">
+                <div>
+                    <h3 class="text-lg font-bold mb-4">กรณีที่ 1: การบันทึกประจำเวร</h3>
+                    <p class="text-[var(--TL)] text-sm leading-relaxed mb-6">เน้นความรวดเร็วตามสไตล์ Linear (Minimalist) เพียงกรอกตัวเลข % ที่หน้าจอเครื่องแล้วกดบันทึก ระบบจะจำค่าวันหมดอายุเดิมให้โดยอัตโนมัติ</p>
+                    <ul class="space-y-3 text-xs text-[var(--TL)]">
+                        <li class="flex items-center gap-3"><span class="w-1.5 h-1.5 bg-[var(--P)]"></span>กรอก % น้ำยาที่ตรวจเช็ก</li>
+                        <li class="flex items-center gap-3"><span class="w-1.5 h-1.5 bg-[var(--P)]"></span>ไม่ต้องแก้ปุ่ม "เปลี่ยนน้ำยา"</li>
+                        <li class="flex items-center gap-3"><span class="w-1.5 h-1.5 bg-[var(--P)]"></span>กดบันทึก (💾)</li>
+                    </ul>
+                </div>
+                <div class="bg-[var(--S1)] p-8 border border-[var(--BD)]">
+                    <div class="text-[10px] font-bold text-[var(--TL)] mb-2">INPUT FIELD (LINEAR STYLE)</div>
+                    <div class="h-12 border border-[var(--BD)] bg-white flex items-center justify-between px-4 font-bold mono">
+                        85.0 <span class="text-[var(--TL)] text-[10px]">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Case 2 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-16 border-t border-[var(--BD)] pt-12">
+                <div class="order-2 md:order-1 bg-[var(--P)] p-8 text-white">
+                    <div class="text-[10px] font-bold opacity-70 mb-2 uppercase">New Reagent Entry</div>
+                    <div class="text-3xl font-bold mono mb-6">100.0%</div>
+                    <div class="h-10 border border-white/30 bg-white/10 flex items-center px-4 text-xs font-bold">
+                        EXP: 2027-01-15
+                    </div>
+                </div>
+                <div class="order-1 md:order-2">
+                    <h3 class="text-lg font-bold mb-4">กรณีที่ 2: การเปลี่ยนขวดใหม่</h3>
+                    <p class="text-[var(--TL)] text-sm leading-relaxed mb-6">เมื่อมีการเปิดน้ำยาขวดใหม่ ให้ทำการอัปเดตข้อมูลชุดใหม่เพื่อความถูกต้องของการติดตามการใช้งาน</p>
+                    <ol class="list-decimal list-inside space-y-3 text-xs text-[var(--TL)]">
+                        <li>กรอกปริมาณเป็น <b>100%</b></li>
+                        <li>ระบุ <b>วันหมดอายุใหม่</b> ของขวดนั้นๆ</li>
+                        <li>ใส่หมายเหตุหรือ Lot Number ในช่องส่งต่อ</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-20 pt-10 border-t border-[var(--BD)] text-left flex justify-between items-end">
+            <div>
+                <div class="text-[var(--P)] font-bold text-xl mb-2">Blood Gas Tracker</div>
+                <p class="text-[var(--TL)] text-xs uppercase tracking-widest">Clinical Standard v5.0</p>
+            </div>
+            <p class="text-[var(--TL)] text-[10px] italic">Design inspiration: awesome-design-md (HP/Linear/Carbon)</p>
+        </footer>
+    </div>
+</body>
+</html>
